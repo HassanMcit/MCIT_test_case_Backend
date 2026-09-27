@@ -1,5 +1,5 @@
-import { IsString, Matches, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, Matches, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -40,11 +40,13 @@ export class CreateUserDto {
   )
   password: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'user',
-    description: 'User role: admin | user',
+    description: 'User role: admin | user (optional, defaults to user)',
     enum: ['admin', 'user'],
+    default: 'user',
   })
+  @IsOptional()
   @IsString()
   @Matches(
     /^(admin|user)$/,
@@ -52,5 +54,5 @@ export class CreateUserDto {
       message: 'الدور (role) يجب أن يكون إما admin أو user فقط',
     },
   )
-  role: string;
+  role?: string;
 }

@@ -18,10 +18,11 @@ export class UsersService {
 
     const hashedPassword = bcrypt.hashSync(dto.password, 10);
 
+    const userRole = dto.role || 'user';
     const result = db.prepare(`
       INSERT INTO users (name, email, password, role)
       VALUES (?, ?, ?, ?)
-    `).run(dto.name, dto.email, hashedPassword, dto.role);
+    `).run(dto.name, dto.email, hashedPassword, userRole);
 
     const newId = Number(result.lastInsertRowid);
     return this.findOne(newId);

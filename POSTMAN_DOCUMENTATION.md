@@ -34,7 +34,7 @@
 
 النظام يحتوي على مستويين من الأدوار (`role`):
 1. **المدير (`admin`):**
-   - الحساب الافتراضي الرئيسي: `karim@mcit.gov.eg` / `password123`.
+   - الحساب الافتراضي الرئيسي: `h.ali@mcit.gov.eg` / `password123`.
    - يملك جميع الصلاحيات في النظام.
    - **الصلاحية الحصرية:** هو **الوحيد** المصرح له بإضافة مستخدمين وفاحصين جدد عبر الرابط الكامل:
      `https://mcit-test-case-backend.onrender.com/api/users`
@@ -76,7 +76,7 @@
 - **الـ Body (اختر raw ثم اختر نوعه JSON):**
 ```json
 {
-  "email": "karim@mcit.gov.eg",
+  "email": "h.ali@mcit.gov.eg",
   "password": "password123"
 }
 ```
@@ -89,8 +89,8 @@
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoia2FyaW1AbWNpdC5nb3YuZWciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3OTA1MTY4MDgsImV4cCI6MTc5MTExMjE2MDh9.vii-2H5fHOZF6qYw7xtCt3v7AKzdsjN4zQWNgT71hXE",
   "user": {
     "id": 1,
-    "name": "Karim Mansour",
-    "email": "karim@mcit.gov.eg",
+    "name": "Hassan Ali",
+    "email": "h.ali@mcit.gov.eg",
     "role": "admin"
   }
 }
@@ -132,8 +132,8 @@
 ```json
 {
   "id": 1,
-  "name": "Karim Mansour",
-  "email": "karim@mcit.gov.eg",
+  "name": "Hassan Ali",
+  "email": "h.ali@mcit.gov.eg",
   "role": "admin",
   "createdAt": "2026-09-27 12:51:07"
 }
@@ -715,7 +715,7 @@
 
 1. **تسجيل الدخول (Login):**
    - الرابط: `POST https://mcit-test-case-backend.onrender.com/api/auth/login`
-   - البودي: `{"email": "karim@mcit.gov.eg", "password": "password123"}`
+   - البودي: `{"email": "h.ali@mcit.gov.eg", "password": "password123"}`
    - سيعود لك `access_token` صالح لمدة **7 أيام كاملة**.
 2. **إنشاء حساب فاحص جديد (Admin Only):**
    - الرابط: `POST https://mcit-test-case-backend.onrender.com/api/users`

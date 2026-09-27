@@ -1,0 +1,418 @@
+{
+  "info": {
+    "name": "MCIT QA Test Suite Manager API",
+    "_postman_id": "mcit-qa-suite-api-2025",
+    "description": "مجموعة طلبات Postman الرسمية والكاملة للـ Backend الخاص بنظام إدارة اختبارات الجودة (MCIT).\n\n- Base URL: https://mcit-test-case-backend.onrender.com/api\n- المصادقة: JWT Bearer Token صالح لمدة 7 أيام يتم حفظه تلقائياً في متغير البيئة {{token}} بعد تسجيل الدخول.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://mcit-test-case-backend.onrender.com/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication (المصادقة)",
+      "item": [
+        {
+          "name": "1.1 Login (تسجيل الدخول)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.access_token) {",
+                  "    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+                  "    console.log(\"Saved token to collection variable:\", jsonData.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"karim@mcit.gov.eg\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "تسجيل الدخول باستخدام البريد وكلمة المرور فقط. بعد إرسال هذا الطلب يتم حفظ الـ JWT Token تلقائياً في المتغير {{token}}."
+          }
+        },
+        {
+          "name": "1.2 Get Me (بيانات المستخدم الحالي)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "جلب بيانات حسابك الحالي والتأكد من صلاحية التوكن."
+          }
+        },
+        {
+          "name": "1.3 Logout (تسجيل الخروج)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "تسجيل الخروج من الجلسة."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Dashboard (لوحة المؤشرات والتحليلات)",
+      "item": [
+        {
+          "name": "2.1 Overall KPI Stats (الإحصائيات العامة)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "stats"]
+            },
+            "description": "إحصائيات البطاقات العلوية: الإجمالي، الناجح، الفاشل، المعلق، نسبة النجاح العامة، وإجمالي المشاريع."
+          }
+        },
+        {
+          "name": "2.2 Daily Execution Chart (بيانات الرسم البياني)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/chart?days=14",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "chart"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "14",
+                  "description": "عدد الأيام السابقة (افتراضي 14)"
+                }
+              ]
+            },
+            "description": "مصفوفة تاريخية للأيام السابقة توضح توزيع الحالات المنفذة يومياً لتغذية الـ Bar Chart."
+          }
+        },
+        {
+          "name": "2.3 Defect Severity Breakdown (توزيع العيوب)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/severity",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "severity"]
+            },
+            "description": "توزيع الحالات الفاشلة (Bugs) حسب مستوى الأولوية / الخطورة (Critical, High, Medium, Low)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Test Cases (حالات الاختبار)",
+      "item": [
+        {
+          "name": "3.1 List Test Cases (قائمة الحالات مع الفلاتر والبحث)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/test-cases?page=1&limit=10&status=&priority=&module=&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-cases"],
+              "query": [
+                { "key": "page", "value": "1", "description": "رقم الصفحة" },
+                { "key": "limit", "value": "10", "description": "عدد السجلات" },
+                { "key": "status", "value": "", "description": "passed | failed | pending" },
+                { "key": "priority", "value": "", "description": "critical | high | medium | low" },
+                { "key": "module", "value": "", "description": "اسم الوحدة" },
+                { "key": "search", "value": "", "description": "بحث نصي" }
+              ]
+            },
+            "description": "جلب قائمة حالات الاختبار مع بيانات الفاحص والمشروع وترقيم الصفحات."
+          }
+        },
+        {
+          "name": "3.2 Create Test Case (إضافة حالة اختبار جديدة)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testId\": \"TC-8505\",\n  \"module\": \"Authentication\",\n  \"pageName\": \"Forgot Password\",\n  \"scenario\": \"Verify OTP code sent to registered user phone\",\n  \"preConditions\": \"User phone is verified in system\",\n  \"steps\": [\n    \"Navigate to forgot password\",\n    \"Enter phone number\",\n    \"Verify SMS received\",\n    \"Submit code\"\n  ],\n  \"expectedResult\": \"Password reset screen opens successfully\",\n  \"actualResult\": \"Screen opened in 1.2s\",\n  \"priority\": \"high\",\n  \"status\": \"passed\",\n  \"notes\": \"Tested via Postman API\",\n  \"executedAt\": \"2026-09-27T14:30:00.000Z\",\n  \"testerId\": 1,\n  \"projectId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/test-cases",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-cases"]
+            },
+            "description": "إضافة حالة اختبار جديدة (يتم التحقق من الحقول بواسطة Regex)."
+          }
+        },
+        {
+          "name": "3.3 Get Test Case by ID (تفاصيل حالة معينة)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/test-cases/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-cases", "1"]
+            },
+            "description": "جلب تفاصيل حالة اختبار محددة بواسطة رقمها التعريفي (ID)."
+          }
+        },
+        {
+          "name": "3.4 Update Test Case (تعديل حالة اختبار جزئياً)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"actualResult\": \"Connection timeout during gateway handshake\",\n  \"notes\": \"Updated from Postman collection\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/test-cases/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-cases", "1"]
+            },
+            "description": "تعديل حقول حالة الاختبار (status, priority, actualResult, إلخ)."
+          }
+        },
+        {
+          "name": "3.5 Delete Test Case (حذف حالة اختبار)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/test-cases/10",
+              "host": ["{{baseUrl}}"],
+              "path": ["test-cases", "10"]
+            },
+            "description": "حذف حالة اختبار محددة."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Projects (إدارة المشاريع)",
+      "item": [
+        {
+          "name": "4.1 List Projects with Live Stats (قائمة المشاريع)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/projects?environment=&status=&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"],
+              "query": [
+                { "key": "environment", "value": "", "description": "production | staging" },
+                { "key": "status", "value": "", "description": "active | archived" },
+                { "key": "search", "value": "", "description": "بحث بالاسم أو الوصف" }
+              ]
+            },
+            "description": "جلب قائمة المشاريع وحساب نسب النجاح الحية وعدد الحالات لكل مشروع."
+          }
+        },
+        {
+          "name": "4.2 Create Project (إنشاء مشروع جديد)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"منظومة الفاتورة الإلكترونية الموحدة\",\n  \"description\": \"بوابة الفواتير الضريبية الإلكترونية للمؤسسات والشركات\",\n  \"environment\": \"staging\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            },
+            "description": "إنشاء مشروع جديد بالاسم والبيئة والوصف."
+          }
+        },
+        {
+          "name": "4.3 Get Project by ID (تفاصيل مشروع)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/projects/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "1"]
+            },
+            "description": "جلب تفاصيل المشروع مع إحصائياته وآخر 5 حالات اختبار خاصة به."
+          }
+        },
+        {
+          "name": "4.4 Update Project (تعديل مشروع)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"environment\": \"production\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "1"]
+            },
+            "description": "تعديل بيانات المشروع الجزئية."
+          }
+        },
+        {
+          "name": "4.5 Delete Project (حذف مشروع)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/projects/7",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "7"]
+            },
+            "description": "حذف مشروع بواسطة رقمه التعريفي."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Users (المستخدمين والفاحصين)",
+      "item": [
+        {
+          "name": "5.1 List Testers (قائمة الفاحصين)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "قائمة الفاحصين لتعبئة القوائم المنسدلة في الفرونت."
+          }
+        },
+        {
+          "name": "5.2 Get User by ID (تفاصيل فاحص معين)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1"]
+            },
+            "description": "جلب بيانات الفاحص مع عدد الاختبارات المسندة إليه."
+          }
+        }
+      ]
+    }
+  ]
+}

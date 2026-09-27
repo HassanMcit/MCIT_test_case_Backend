@@ -13,7 +13,20 @@ export interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly databaseService: DatabaseService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: any) => {
+          const auth = req?.headers?.authorization;
+          if (!auth) return null;
+          if (typeof auth === 'string') {
+            if (auth.startsWith('Bearer ')) {
+              return auth.substring(7).trim();
+            }
+            return auth.trim();
+          }
+          return null;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET || 'qa_suite_super_secret_key_2025_mcit',
     });

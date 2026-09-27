@@ -377,7 +377,7 @@
       "name": "5. Users (المستخدمين والفاحصين)",
       "item": [
         {
-          "name": "5.1 List Users (قائمة المستخدمين والفاحصين)",
+          "name": "5.1 List Users - Admin Only (عرض كل المستخدمين ومشاريعهم)",
           "request": {
             "method": "GET",
             "header": [
@@ -391,11 +391,11 @@
               "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["users"]
             },
-            "description": "قائمة الفاحصين والمستخدمين لتعبئة القوائم المنسدلة في الفرونت."
+            "description": "خاص بالـ Admin فقط. عرض جميع المستخدمين مع قائمة المشاريع المسندة لكل مستخدم."
           }
         },
         {
-          "name": "5.2 Create User - Admin Only (إضافة مستخدم جديد وتحديد دوره)",
+          "name": "5.2 Create User - Admin Only (إضافة مستخدم جديد)",
           "request": {
             "method": "POST",
             "header": [
@@ -415,7 +415,45 @@
           }
         },
         {
-          "name": "5.3 Get User by ID (تفاصيل مستخدم معين)",
+          "name": "5.3 Assign Project to User - Admin Only (إسناد مشروع لفاحص)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": 1\n}"
+            },
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/users/2/assign-project",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["users", "2", "assign-project"]
+            },
+            "description": "خاص بالـ Admin فقط. إسناد مشروع محدد لمستخدم/فاحص للبدء في اختباره."
+          }
+        },
+        {
+          "name": "5.4 My Assigned Projects - User Only (مشاريعي المسندة للاختبار)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/users/my-assigned-projects",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["users", "my-assigned-projects"]
+            },
+            "description": "خاص بأي مستخدم مسجل. يعرض قائمة بالمشاريع المسندة إليه لاختبارها مع إحصائياتها الحية."
+          }
+        },
+        {
+          "name": "5.5 Get User by ID (تفاصيل مستخدم معين)",
           "request": {
             "method": "GET",
             "header": [
@@ -429,7 +467,7 @@
               "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["users", "1"]
             },
-            "description": "جلب بيانات المستخدم مع عدد الاختبارات المسندة إليه."
+            "description": "جلب بيانات المستخدم مع عدد الاختبارات المسندة إليه وماريعه."
           }
         }
       ]

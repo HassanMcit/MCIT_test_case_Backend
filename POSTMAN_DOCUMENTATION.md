@@ -158,7 +158,7 @@
 
 ---
 
-### 4.2 المستخدمين والفاحصين (Users)
+### 4.2 المستخدمين وإدارة المشاريع المسندة (Users & Project Assignments)
 
 ---
 
@@ -174,8 +174,8 @@
 - **الـ Body (raw / JSON):**
 ```json
 {
-  "name": "محمود أحمد النجار",
-  "email": "mahmoud@mcit.gov.eg",
+  "name": "سعيد كمال",
+  "email": "saeed@mcit.gov.eg",
   "password": "password123",
   "role": "user"
 }
@@ -184,21 +184,22 @@
   - `name`: أحرف صحيحة بطول 2 إلى 50 حرفاً `/^[\p{L}\p{N}\s\-_.,()'"/]{2,50}$/u`.
   - `email`: بريد إلكتروني رسمي صحيح.
   - `password`: بين 6 و 50 حرفاً.
-  - `role`: يقبل حصراً إما **`admin`** أو **`user`** بـ Regex صارم: `/^(admin|user)$/`.
+  - `role`: اختياري، يقبل حصراً إما **`admin`** أو **`user`** بـ Regex صارم: `/^(admin|user)$/` (القيمة الافتراضية هي `user`).
 - **شكل الـ Response عند النجاح (201 Created):**
 ```json
 {
-  "id": 4,
-  "name": "محمود أحمد النجار",
-  "email": "mahmoud@mcit.gov.eg",
+  "id": 2,
+  "name": "سعيد كمال",
+  "email": "saeed@mcit.gov.eg",
   "role": "user",
-  "createdAt": "2026-09-27 13:58:12",
+  "createdAt": "2026-09-27 17:20:00",
   "_count": {
-    "testCases": 0
-  }
+    "testCases": 0,
+    "assignedProjects": 0
+  },
+  "assignedProjects": []
 }
 ```
-
 - **شكل الـ Response إذا حاول مستخدم غير Admin استدعاء الرابط (403 Forbidden):**
 ```json
 {
@@ -208,21 +209,107 @@
 }
 ```
 
-- **شكل الـ Response إذا أرسلت دوراً مخالفاً للـ Regex (400 Bad Request):**
+---
+
+#### [GET] عرض جميع المستخدمين والمشاريع المسندة إليهم (List Users - للـ Admin فقط)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/users
+  ```
+- **نوع الطلب (Method):** `GET`
+- **الـ Headers:**
+  - `Authorization`: `Bearer <توكن_حساب_الـ_Admin>`
+- **الصلاحية:** مخصص للـ **Admin فقط**. لو حاول مستخدم عادي طلبه سيرجع فوراً `403 Forbidden`.
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "name": "Hassan Ali",
+    "email": "h.ali@mcit.gov.eg",
+    "role": "admin",
+    "createdAt": "2026-09-27 12:51:07",
+    "_count": {
+      "testCases": 0,
+      "assignedProjects": 0
+    },
+    "assignedProjects": []
+  },
+  {
+    "id": 2,
+    "name": "سعيد كمال",
+    "email": "saeed@mcit.gov.eg",
+    "role": "user",
+    "createdAt": "2026-09-27 17:20:00",
+    "_count": {
+      "testCases": 0,
+      "assignedProjects": 1
+    },
+    "assignedProjects": [
+      {
+        "id": 1,
+        "name": "منظومة التحول الرقمي الوطنية",
+        "description": "مشروع ميكنة وتطوير الخدمات الحكومية الرقمية",
+        "environment": "staging",
+        "status": "active",
+        "assignedAt": "2026-09-27 17:25:00"
+      }
+    ]
+  }
+]
+```
+- **شكل الـ Response إذا حاول مستخدم عادي طلبه (403 Forbidden):**
 ```json
 {
-  "message": [
-    "الدور (role) يجب أن يكون إما admin أو user فقط"
-  ],
-  "error": "Bad Request",
-  "statusCode": 400
+  "message": "غير مصرح لك. هذه العملية مخصصة لمدير النظام (admin) فقط",
+  "error": "Forbidden",
+  "statusCode": 403
 }
 ```
 
-- **شكل الـ Response إذا كان الإيميل مكرراً (409 Conflict):**
+---
+
+#### [POST] إسناد مشروع لمستخدم لاختباره (Assign Project to User - للـ Admin فقط)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/users/2/assign-project
+  ```
+  *(استبدل رقم `2` برقم الـ ID الخاص بالمستخدم المراد إسناد المشروع له)*
+- **نوع الطلب (Method):** `POST`
+- **الـ Headers:**
+  - `Authorization`: `Bearer <توكن_حساب_الـ_Admin>`
+  - `Content-Type`: `application/json`
+- **الـ Body (raw / JSON):**
 ```json
 {
-  "message": "البريد الإلكتروني مسجل بالفعل لمستخدم آخر",
+  "projectId": 1
+}
+```
+- **شكل الـ Response عند النجاح (201 Created):**
+```json
+{
+  "message": "تم إسناد مشروع \"منظومة التحول الرقمي الوطنية\" للمستخدم \"سعيد كمال\" بنجاح للبدء في اختباره",
+  "assignment": {
+    "userId": 2,
+    "userName": "سعيد كمال",
+    "projectId": 1,
+    "projectName": "منظومة التحول الرقمي الوطنية",
+    "assignedAt": "2026-09-27T17:25:00.000Z"
+  }
+}
+```
+- **شكل الـ Response إذا حاول مستخدم عادي إسناد مشروع (403 Forbidden):**
+```json
+{
+  "message": "غير مصرح لك. هذه العملية مخصصة لمدير النظام (admin) فقط",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+- **شكل الـ Response إذا كان المشروع مسنداً له بالفعل مسبقاً (409 Conflict):**
+```json
+{
+  "message": "المشروع \"منظومة التحول الرقمي الوطنية\" مسند بالفعل للمستخدم \"سعيد كمال\"",
   "error": "Conflict",
   "statusCode": 409
 }
@@ -230,60 +317,86 @@
 
 ---
 
-#### [GET] قائمة جميع المستخدمين والفاحصين (List Users)
+#### [GET] المشاريع المسندة للمستخدم الحالي لاختبارها (My Assigned Projects)
 - **الرابط الكامل في Postman:**
   ```text
-  https://mcit-test-case-backend.onrender.com/api/users
+  https://mcit-test-case-backend.onrender.com/api/users/my-assigned-projects
   ```
 - **نوع الطلب (Method):** `GET`
 - **الـ Headers:**
-  - `Authorization`: `Bearer <الصق_التوكن_هنا>`
+  - `Authorization`: `Bearer <توكن_المستخدم_سواء_user_أو_admin>`
+- **الوصف:** هذا الرابط يتيح لأي مستخدم تسجيل دخوله واستدعائه ليرى فوراً قائمة بجميع المشاريع المكلف باختبارها، مع إحصائيات حية لعدد حالات الاختبار ومعدل النجاح لكل مشروع.
 - **شكل الـ Response عند النجاح (200 OK):**
 ```json
 [
   {
     "id": 1,
-    "name": "Karim Mansour",
-    "email": "karim@mcit.gov.eg",
-    "role": "admin",
-    "createdAt": "2026-09-27 12:51:07"
-  },
-  {
-    "id": 2,
-    "name": "Sara Fouad",
-    "email": "sara@mcit.gov.eg",
-    "role": "user",
-    "createdAt": "2026-09-27 12:51:07"
-  },
-  {
-    "id": 3,
-    "name": "Ahmed El-Shenawy",
-    "email": "ahmed@mcit.gov.eg",
-    "role": "user",
-    "createdAt": "2026-09-27 12:51:07"
+    "name": "منظومة التحول الرقمي الوطنية",
+    "description": "مشروع ميكنة وتطوير الخدمات الحكومية الرقمية",
+    "environment": "staging",
+    "status": "active",
+    "assignedAt": "2026-09-27 17:25:00",
+    "stats": {
+      "total": 5,
+      "passed": 4,
+      "failed": 1,
+      "pending": 0,
+      "successRate": 80
+    }
   }
 ]
 ```
 
 ---
 
-#### [GET] جلب بيانات مستخدم محدد بالـ ID
+#### [DELETE] إلغاء إسناد مشروع من مستخدم (Unassign Project - للـ Admin فقط)
 - **الرابط الكامل في Postman:**
   ```text
-  https://mcit-test-case-backend.onrender.com/api/users/1
+  https://mcit-test-case-backend.onrender.com/api/users/2/assign-project/1
   ```
-- **نوع الطلب (Method):** `GET`
+  *(استبدل `2` برقم المستخدم و `1` برقم المشروع)*
+- **نوع الطلب (Method):** `DELETE`
+- **الـ Headers:**
+  - `Authorization`: `Bearer <توكن_حساب_الـ_Admin>`
 - **شكل الـ Response عند النجاح (200 OK):**
 ```json
 {
-  "id": 1,
-  "name": "Karim Mansour",
-  "email": "karim@mcit.gov.eg",
-  "role": "admin",
-  "createdAt": "2026-09-27 12:51:07",
+  "message": "تم إلغاء إسناد المشروع #1 من المستخدم #2 بنجاح"
+}
+```
+
+---
+
+#### [GET] جلب بيانات مستخدم محدد بالـ ID (Get User by ID - للـ Admin فقط)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/users/2
+  ```
+- **نوع الطلب (Method):** `GET`
+- **الـ Headers:**
+  - `Authorization`: `Bearer <توكن_حساب_الـ_Admin>`
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+{
+  "id": 2,
+  "name": "سعيد كمال",
+  "email": "saeed@mcit.gov.eg",
+  "role": "user",
+  "createdAt": "2026-09-27 17:20:00",
   "_count": {
-    "testCases": 4
-  }
+    "testCases": 0,
+    "assignedProjects": 1
+  },
+  "assignedProjects": [
+    {
+      "id": 1,
+      "name": "منظومة التحول الرقمي الوطنية",
+      "description": "مشروع ميكنة وتطوير الخدمات الحكومية الرقمية",
+      "environment": "staging",
+      "status": "active",
+      "assignedAt": "2026-09-27 17:25:00"
+    }
+  ]
 }
 ```
 
@@ -422,8 +535,8 @@
       "updatedAt": "2026-09-27 12:51:07",
       "tester": {
         "id": 1,
-        "name": "Karim Mansour",
-        "email": "karim@mcit.gov.eg"
+        "name": "Hassan Ali",
+        "email": "h.ali@mcit.gov.eg"
       },
       "project": {
         "id": 1,
@@ -508,8 +621,8 @@
   "updatedAt": "2026-09-27 14:10:00",
   "tester": {
     "id": 1,
-    "name": "Karim Mansour",
-    "email": "karim@mcit.gov.eg"
+    "name": "Hassan Ali",
+    "email": "h.ali@mcit.gov.eg"
   },
   "project": {
     "id": 1,

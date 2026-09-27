@@ -68,6 +68,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         createdAt TEXT DEFAULT (datetime('now')),
         updatedAt TEXT DEFAULT (datetime('now'))
       );
+
+      CREATE TABLE IF NOT EXISTS project_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        assignedAt TEXT DEFAULT (datetime('now')),
+        UNIQUE(userId, projectId)
+      );
     `);
   }
 

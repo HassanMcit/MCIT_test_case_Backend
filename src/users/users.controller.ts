@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Request,
@@ -17,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { AssignProjectDto } from './dto/assign-project.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -42,18 +44,76 @@ export class UsersController {
 
   /**
    * GET /api/users
-   * List all users (for tester assignment dropdowns)
+   * List all users with assigned projects (Admin Only)
    */
   @Get()
-  @ApiOperation({ summary: 'List all users (for assignment dropdowns)' })
-  @ApiResponse({ status: 200, description: 'Array of users (passwords excluded)' })
-  findAll() {
+  @ApiOperation({ summary: 'List all users with assigned projects (Admin Only)' })
+  @ApiResponse({ status: 200, description: 'Array of users with their assigned projects' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  findAll(@Request() req: any) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. عرض قائمة المستخدمين مخصص لمدير النظام (admin) فقط');
+    }
     return this.usersService.findAll();
   }
 
   /**
+   * GET /api/users/my-assigned-projects
+   * For the logged-in User: get all projects assigned to them
+   */
+  @Get('my-assigned-projects')
+  @ApiOperation({ summary: 'Get projects assigned to the currently logged-in user' })
+  @ApiResponse({ status: 200, description: 'Array of assigned projects with test metrics' })
+  getMyAssignedProjects(@Request() req: any) {
+    return this.usersService.getMyAssignedProjects(req.user.id);
+  }
+
+  /**
+   * POST /api/users/:id/assign-project
+   * Assign a project to a user for testing (Admin Only)
+   */
+  @Post(':id/assign-project')
+  @ApiOperation({ summary: 'Assign a project to a user for testing (Admin Only)' })
+  @ApiParam({ name: 'id', type: Number, example: 2, description: 'Target User ID' })
+  @ApiResponse({ status: 201, description: 'Project assigned to user successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  @ApiResponse({ status: 404, description: 'User or project not found' })
+  @ApiResponse({ status: 409, description: 'Project already assigned to this user' })
+  assignProject(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) userId: number,
+    @Body() dto: AssignProjectDto,
+  ) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. إسناد المشاريع مخصص لمدير النظام (admin) فقط');
+    }
+    return this.usersService.assignProject(userId, dto);
+  }
+
+  /**
+   * DELETE /api/users/:id/assign-project/:projectId
+   * Remove project assignment from user (Admin Only)
+   */
+  @Delete(':id/assign-project/:projectId')
+  @ApiOperation({ summary: 'Unassign project from user (Admin Only)' })
+  @ApiParam({ name: 'id', type: Number, example: 2 })
+  @ApiParam({ name: 'projectId', type: Number, example: 1 })
+  @ApiResponse({ status: 200, description: 'Project unassigned successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  unassignProject(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) userId: number,
+    @Param('projectId', ParseIntPipe) projectId: number,
+  ) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. إلغاء إسناد المشاريع مخصص لمدير النظام (admin) فقط');
+    }
+    return this.usersService.unassignProject(userId, projectId);
+  }
+
+  /**
    * GET /api/users/:id
-   * Get a single user with their test case count
+   * Get a single user with their test case count and assigned projects
    */
   @Get(':id')
   @ApiOperation({ summary: 'Get a single user by ID' })

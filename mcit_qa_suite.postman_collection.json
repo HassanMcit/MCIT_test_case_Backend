@@ -377,7 +377,7 @@
       "name": "5. Users (المستخدمين والفاحصين)",
       "item": [
         {
-          "name": "5.1 List Testers (قائمة الفاحصين)",
+          "name": "5.1 List Users (قائمة المستخدمين والفاحصين)",
           "request": {
             "method": "GET",
             "header": [
@@ -391,11 +391,31 @@
               "host": ["{{baseUrl}}"],
               "path": ["users"]
             },
-            "description": "قائمة الفاحصين لتعبئة القوائم المنسدلة في الفرونت."
+            "description": "قائمة الفاحصين والمستخدمين لتعبئة القوائم المنسدلة في الفرونت."
           }
         },
         {
-          "name": "5.2 Get User by ID (تفاصيل فاحص معين)",
+          "name": "5.2 Create User - Admin Only (إضافة مستخدم جديد وتحديد دوره)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"محمود أحمد النجار\",\n  \"email\": \"mahmoud@mcit.gov.eg\",\n  \"password\": \"password123\",\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "خاص بحسابات الـ admin فقط. إنشاء مستخدم جديد وتحديد دوره إما admin أو user."
+          }
+        },
+        {
+          "name": "5.3 Get User by ID (تفاصيل مستخدم معين)",
           "request": {
             "method": "GET",
             "header": [
@@ -409,7 +429,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["users", "1"]
             },
-            "description": "جلب بيانات الفاحص مع عدد الاختبارات المسندة إليه."
+            "description": "جلب بيانات المستخدم مع عدد الاختبارات المسندة إليه."
           }
         }
       ]

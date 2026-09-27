@@ -51,8 +51,8 @@
               "raw": "{\n  \"email\": \"karim@mcit.gov.eg\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/login",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["auth", "login"]
             },
             "description": "تسجيل الدخول باستخدام البريد وكلمة المرور فقط. بعد إرسال هذا الطلب يتم حفظ الـ JWT Token تلقائياً في المتغير {{token}}."
@@ -69,8 +69,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/me",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["auth", "me"]
             },
             "description": "جلب بيانات حسابك الحالي والتأكد من صلاحية التوكن."
@@ -87,8 +87,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/logout",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/logout",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["auth", "logout"]
             },
             "description": "تسجيل الخروج من الجلسة."
@@ -110,8 +110,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/dashboard/stats",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/dashboard/stats",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["dashboard", "stats"]
             },
             "description": "إحصائيات البطاقات العلوية: الإجمالي، الناجح، الفاشل، المعلق، نسبة النجاح العامة، وإجمالي المشاريع."
@@ -128,8 +128,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/dashboard/chart?days=14",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/dashboard/chart?days=14",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["dashboard", "chart"],
               "query": [
                 {
@@ -153,8 +153,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/dashboard/severity",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/dashboard/severity",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["dashboard", "severity"]
             },
             "description": "توزيع الحالات الفاشلة (Bugs) حسب مستوى الأولوية / الخطورة (Critical, High, Medium, Low)."
@@ -176,8 +176,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/test-cases?page=1&limit=10&status=&priority=&module=&search=",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/test-cases?page=1&limit=10&status=&priority=&module=&search=",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["test-cases"],
               "query": [
                 { "key": "page", "value": "1", "description": "رقم الصفحة" },
@@ -204,8 +204,8 @@
               "raw": "{\n  \"testId\": \"TC-8505\",\n  \"module\": \"Authentication\",\n  \"pageName\": \"Forgot Password\",\n  \"scenario\": \"Verify OTP code sent to registered user phone\",\n  \"preConditions\": \"User phone is verified in system\",\n  \"steps\": [\n    \"Navigate to forgot password\",\n    \"Enter phone number\",\n    \"Verify SMS received\",\n    \"Submit code\"\n  ],\n  \"expectedResult\": \"Password reset screen opens successfully\",\n  \"actualResult\": \"Screen opened in 1.2s\",\n  \"priority\": \"high\",\n  \"status\": \"passed\",\n  \"notes\": \"Tested via Postman API\",\n  \"executedAt\": \"2026-09-27T14:30:00.000Z\",\n  \"testerId\": 1,\n  \"projectId\": 1\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/test-cases",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/test-cases",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["test-cases"]
             },
             "description": "إضافة حالة اختبار جديدة (يتم التحقق من الحقول بواسطة Regex)."
@@ -222,8 +222,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/test-cases/1",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/test-cases/1",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["test-cases", "1"]
             },
             "description": "جلب تفاصيل حالة اختبار محددة بواسطة رقمها التعريفي (ID)."
@@ -242,8 +242,8 @@
               "raw": "{\n  \"status\": \"failed\",\n  \"actualResult\": \"Connection timeout during gateway handshake\",\n  \"notes\": \"Updated from Postman collection\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/test-cases/1",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/test-cases/1",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["test-cases", "1"]
             },
             "description": "تعديل حقول حالة الاختبار (status, priority, actualResult, إلخ)."
@@ -260,8 +260,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/test-cases/10",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/test-cases/10",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["test-cases", "10"]
             },
             "description": "حذف حالة اختبار محددة."
@@ -283,8 +283,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/projects?environment=&status=&search=",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/projects?environment=&status=&search=",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["projects"],
               "query": [
                 { "key": "environment", "value": "", "description": "production | staging" },
@@ -308,8 +308,8 @@
               "raw": "{\n  \"name\": \"منظومة الفاتورة الإلكترونية الموحدة\",\n  \"description\": \"بوابة الفواتير الضريبية الإلكترونية للمؤسسات والشركات\",\n  \"environment\": \"staging\",\n  \"status\": \"active\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/projects",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/projects",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["projects"]
             },
             "description": "إنشاء مشروع جديد بالاسم والبيئة والوصف."
@@ -326,8 +326,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/projects/1",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/projects/1",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["projects", "1"]
             },
             "description": "جلب تفاصيل المشروع مع إحصائياته وآخر 5 حالات اختبار خاصة به."
@@ -346,8 +346,8 @@
               "raw": "{\n  \"environment\": \"production\",\n  \"status\": \"active\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/projects/1",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/projects/1",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["projects", "1"]
             },
             "description": "تعديل بيانات المشروع الجزئية."
@@ -364,8 +364,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/projects/7",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/projects/7",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["projects", "7"]
             },
             "description": "حذف مشروع بواسطة رقمه التعريفي."
@@ -387,8 +387,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/users",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["users"]
             },
             "description": "قائمة الفاحصين والمستخدمين لتعبئة القوائم المنسدلة في الفرونت."
@@ -407,8 +407,8 @@
               "raw": "{\n  \"name\": \"محمود أحمد النجار\",\n  \"email\": \"mahmoud@mcit.gov.eg\",\n  \"password\": \"password123\",\n  \"role\": \"user\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/users",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["users"]
             },
             "description": "خاص بحسابات الـ admin فقط. إنشاء مستخدم جديد وتحديد دوره إما admin أو user."
@@ -425,8 +425,8 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/users/1",
-              "host": ["{{baseUrl}}"],
+              "raw": "https://mcit-test-case-backend.onrender.com/api/users/1",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
               "path": ["users", "1"]
             },
             "description": "جلب بيانات المستخدم مع عدد الاختبارات المسندة إليه."

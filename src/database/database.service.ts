@@ -72,24 +72,29 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private seedInitialData() {
-    // Ensure database contains ONLY Hassan Ali (admin) and clear any old data
+    // Ensure database contains ONLY Hassan Ali with id: 1 (admin)
     const hassan = this.db
       .prepare('SELECT id FROM users WHERE email = ?')
-      .get('h.ali@mcit.gov.eg');
+      .get('h.ali@mcit.gov.eg') as { id: number } | undefined;
 
-    if (!hassan) {
+    if (!hassan || hassan.id !== 1) {
+      this.db.exec('PRAGMA foreign_keys = OFF;');
       this.db.exec('DELETE FROM test_cases;');
       this.db.exec('DELETE FROM projects;');
       this.db.exec('DELETE FROM users;');
+      try {
+        this.db.exec('DELETE FROM sqlite_sequence WHERE name IN ("users", "projects", "test_cases");');
+      } catch {}
+      this.db.exec('PRAGMA foreign_keys = ON;');
 
       const defaultPassword = bcrypt.hashSync('password123', 10);
       const insertUser = this.db.prepare(`
-        INSERT INTO users (name, email, password, role)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users (id, name, email, password, role)
+        VALUES (1, ?, ?, ?, ?)
       `);
 
       insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin');
-      console.log('✅ Database reset: Only Hassan Ali (admin) is active.');
+      console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active.');
     }
   }
 }

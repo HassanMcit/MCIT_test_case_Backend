@@ -141,6 +141,151 @@
 
 ---
 
+#### [POST] تغيير كلمة المرور (Change Password)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/auth/change-password
+  ```
+- **نوع الطلب (Method):** `POST`
+- **الـ Headers:**
+  - `Authorization`: `Bearer <توكن_المستخدم>`
+  - `Content-Type`: `application/json`
+- **الـ Body (raw / JSON):**
+```json
+{
+  "oldPassword": "password123",
+  "newPassword": "newPassword123",
+  "confirmPassword": "newPassword123"
+}
+```
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+{
+  "message": "تم تغيير كلمة المرور بنجاح"
+}
+```
+- **شكل الـ Response إذا كانت كلمة المرور الحالية خاطئة (400 Bad Request):**
+```json
+{
+  "message": "كلمة المرور الحالية غير صحيحة",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+- **شكل الـ Response إذا كانت كلمة المرور الجديدة وتأكيدها غير متطابقين (400 Bad Request):**
+```json
+{
+  "message": "كلمة المرور الجديدة وتأكيد كلمة المرور غير متطابقين",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+---
+
+#### [POST] طلب كود استعادة كلمة المرور (Forgot Password - Send OTP)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/auth/forgot-password
+  ```
+- **نوع الطلب (Method):** `POST`
+- **الـ Headers:**
+  - `Content-Type`: `application/json`
+- **الـ Body (raw / JSON):**
+```json
+{
+  "email": "h.ali@mcit.gov.eg"
+}
+```
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+{
+  "message": "تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ Hassan Ali",
+  "email": "h.ali@mcit.gov.eg",
+  "code": "862200",
+  "expiresIn": "15 دقيقة"
+}
+```
+> 💡 **ملاحظة تيسيرية للاختبار:** يتم إرجاع قيمة الـ `code` في استجابة الـ JSON وطباعتها في الـ Console حتى تتمكن من تجربتها فوراً في Postman والواجهة دون الحاجة لإعداد خادم بريد SMTP خارجي.
+
+- **شكل الـ Response إذا كان الإيميل غير مسجل (404 Not Found):**
+```json
+{
+  "message": "البريد الإلكتروني غير مسجل في النظام",
+  "error": "Not Found",
+  "statusCode": 404
+}
+```
+
+---
+
+#### [POST] التحقق من صحة كود الاستعادة (Verify Reset Code)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/auth/verify-reset-code
+  ```
+- **نوع الطلب (Method):** `POST`
+- **الـ Headers:**
+  - `Content-Type`: `application/json`
+- **الـ Body (raw / JSON):**
+```json
+{
+  "email": "h.ali@mcit.gov.eg",
+  "code": "862200"
+}
+```
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+{
+  "valid": true,
+  "message": "كود التحقق صحيح. يمكنك الآن تعيين كلمة المرور وتأكيدها"
+}
+```
+- **شكل الـ Response إذا كان الكود خاطئاً أو منتهياً (400 Bad Request):**
+```json
+{
+  "message": "كود التحقق غير صحيح أو تم استخدامه بالفعل",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+---
+
+#### [POST] تعيين كلمة المرور الجديدة وتأكيدها (Reset Password)
+- **الرابط الكامل في Postman:**
+  ```text
+  https://mcit-test-case-backend.onrender.com/api/auth/reset-password
+  ```
+- **نوع الطلب (Method):** `POST`
+- **الـ Headers:**
+  - `Content-Type`: `application/json`
+- **الـ Body (raw / JSON):**
+```json
+{
+  "email": "h.ali@mcit.gov.eg",
+  "code": "862200",
+  "newPassword": "password123",
+  "confirmPassword": "password123"
+}
+```
+- **شكل الـ Response عند النجاح (200 OK):**
+```json
+{
+  "message": "تم تعيين كلمة المرور الجديدة بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة"
+}
+```
+- **شكل الـ Response إذا كانت كلمة المرور وتأكيدها غير متطابقين (400 Bad Request):**
+```json
+{
+  "message": "كلمة المرور الجديدة وتأكيد كلمة المرور غير متطابقين",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+---
+
 #### [POST] تسجيل الخروج (Logout)
 - **الرابط الكامل في Postman:**
   ```text

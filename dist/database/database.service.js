@@ -109,6 +109,15 @@ let DatabaseService = class DatabaseService {
         assignedAt TEXT DEFAULT (datetime('now')),
         UNIQUE(userId, projectId)
       );
+
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        used INTEGER DEFAULT 0,
+        createdAt TEXT DEFAULT (datetime('now'))
+      );
     `);
     }
     seedInitialData() {

@@ -77,7 +77,99 @@
           }
         },
         {
-          "name": "1.3 Logout (تسجيل الخروج)",
+          "name": "1.3 Change Password (تغيير كلمة المرور للمستخدم الحالي)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"password123\",\n  \"newPassword\": \"newPassword123\",\n  \"confirmPassword\": \"newPassword123\"\n}"
+            },
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/change-password",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "تغيير كلمة المرور للمستخدم المسجل دخوله عبر إرسال كلمة المرور الحالية والجديدة وتأكيدها."
+          }
+        },
+        {
+          "name": "1.4 Forgot Password (طلب كود استعادة كلمة المرور)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"h.ali@mcit.gov.eg\"\n}"
+            },
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/forgot-password",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "إرسال كود تحقق مكون من 6 أرقام إلى البريد الإلكتروني للمستخدم لاستعادة كلمة المرور (صالح لمدة 15 دقيقة)."
+          }
+        },
+        {
+          "name": "1.5 Verify Reset Code (التحقق من صحة كود الاستعادة)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"h.ali@mcit.gov.eg\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/verify-reset-code",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["auth", "verify-reset-code"]
+            },
+            "description": "خطوة اختيارية للواجهة للتحقق من صحة كود التحقق قبل عرض شاشات كلمة المرور الجديدة."
+          }
+        },
+        {
+          "name": "1.6 Reset Password (إدخال الكود وتعيين كلمة المرور الجديدة وتأكيدها)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"h.ali@mcit.gov.eg\",\n  \"code\": \"123456\",\n  \"newPassword\": \"password123\",\n  \"confirmPassword\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "https://mcit-test-case-backend.onrender.com/api/auth/reset-password",
+              "host": ["https://mcit-test-case-backend.onrender.com/api"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "تعيين كلمة المرور الجديدة وتأكيدها بعد التحقق من كود الـ OTP."
+          }
+        },
+        {
+          "name": "1.7 Logout (تسجيل الخروج)",
           "request": {
             "method": "POST",
             "header": [

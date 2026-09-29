@@ -147,7 +147,8 @@ let UsersService = class UsersService {
         }
         if (file && req) {
             const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
-            const protocol = req?.protocol || 'http';
+            const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
+            const protocol = isHttps ? 'https' : (req?.protocol || 'http');
             const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
             const photoUrl = `${baseUrl}/uploads/${file.filename}`;
             updates.push('photo = ?');
@@ -177,7 +178,8 @@ let UsersService = class UsersService {
             throw new common_1.BadRequestException('يرجى اختيار صورة ورفعها في حقل photo');
         }
         const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
-        const protocol = req?.protocol || 'http';
+        const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
+        const protocol = isHttps ? 'https' : (req?.protocol || 'http');
         const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
         const photoUrl = `${baseUrl}/uploads/${file.filename}`;
         const db = this.databaseService.db;

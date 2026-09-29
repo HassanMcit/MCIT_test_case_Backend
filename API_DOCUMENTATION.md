@@ -500,30 +500,40 @@ async function login(email: string, password: string) {
 
 ---
 
-### 5.4 تعديل الملف الشخصي والصورة (Update Profile & Photo)
-- **الرابط:** `PATCH /api/users/profile`
-- **الوصول:** محمي (أي مستخدم مسجل دخوله)
-- **الوصف:** تعديل الاسم أو الصورة الشخصية للمستخدم الحالي (يدعم Base64 أو رابط صورة).
+### 5.4 تعديل الملف الشخصي ورفع الصورة (Update Profile & Photo)
+- **الروابط المتاحة:**
+  - `PATCH /api/users/profile` أو `POST /api/users/profile` (لتحديث الاسم و/أو رفع الصورة)
+  - `POST /api/users/profile/photo` أو `PATCH /api/users/profile/photo` (لرفع الصورة مباشرة)
+- **الوصول:** محمي (Bearer Token)
+- **صيغة الطلب:** يدعم `multipart/form-data` (رفع ملفات مباشرة) أو `application/json`
+- **حجم الملف:** مفتوح **بدون حد أقصى للحجم** لأي صيغة صورة (`jpg`, `jpeg`, `png`, `webp`, `gif`, `svg`).
 
-#### طلب الـ Request (JSON):
-```json
-{
-  "name": "Hassan Ali",
-  "photo": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png"
-}
-```
+#### مثال الرفع عبر FormData (ملف صورة):
+- **Headers:**
+  ```http
+  Authorization: Bearer <token>
+  ```
+- **FormData:**
+  - `photo`: ملف الصورة المختار من جهاز المستخدم (بدون حد للحجم).
+  - `name`: (اختياري) الاسم الجديد.
 
-#### استجابة السيرفر (JSON):
+#### استجابة السيرفر (200 OK):
 ```json
 {
   "message": "تم تحديث الملف الشخصي بنجاح",
+  "photo": "https://mcit-test-case-backend.onrender.com/uploads/profile-1790692310434-89011499.png",
   "user": {
     "id": 1,
     "name": "Hassan Ali",
     "email": "h.ali@mcit.gov.eg",
     "role": "admin",
-    "photo": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
-    "createdAt": "2026-09-27 12:51:07"
+    "photo": "https://mcit-test-case-backend.onrender.com/uploads/profile-1790692310434-89011499.png",
+    "createdAt": "2026-09-27 12:51:07",
+    "_count": {
+      "testCases": 5,
+      "assignedProjects": 2
+    },
+    "assignedProjects": []
   }
 }
 ```

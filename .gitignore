@@ -12,3 +12,10 @@ Thumbs.db
 
 # Dependencies
 node_modules/
+
+# Uploads
+uploads/
+
+# SQLite WAL/SHM
+*.db-shm
+*.db-wal

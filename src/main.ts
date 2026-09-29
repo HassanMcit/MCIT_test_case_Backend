@@ -1,10 +1,26 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { json, urlencoded } from 'express';
+import * as path from 'path';
+import * as fs from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // ── Body parser limit for large payloads ─────────────────────────
+  app.use(json({ limit: '200mb' }));
+  app.use(urlencoded({ extended: true, limit: '200mb' }));
+
+  // ── Serve uploaded static files ──────────────────────────────────
+  const uploadDir = path.resolve(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
+  app.useStaticAssets(uploadDir, { prefix: '/api/uploads/' });
 
   // ── CORS ─────────────────────────────────────────────────────────
   app.enableCors({

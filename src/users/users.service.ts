@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { DatabaseService } from '../database/database.service';
@@ -116,7 +117,7 @@ export class UsersService {
   }
 
   // ── PATCH /api/users/profile (Update own profile) ─────────────────
-  async updateProfile(userId: number, dto: UpdateProfileDto) {
+  async updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any) {
     const db = this.databaseService.db;
 
     const user = db
@@ -130,13 +131,24 @@ export class UsersService {
     const updates: string[] = [];
     const values: any[] = [];
 
-    if (dto.name !== undefined) {
+    if (dto?.name !== undefined && dto.name.trim() !== '') {
       updates.push('name = ?');
-      values.push(dto.name);
+      values.push(dto.name.trim());
     }
 
-    if (dto.photo !== undefined) {
+    if (file && req) {
+      const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
+      const protocol = req?.protocol || 'http';
+      const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
+      const photoUrl = `${baseUrl}/uploads/${file.filename}`;
       updates.push('photo = ?');
+      values.push(photoUrl);
+      updates.push('profileImage = ?');
+      values.push(photoUrl);
+    } else if (dto?.photo !== undefined) {
+      updates.push('photo = ?');
+      values.push(dto.photo);
+      updates.push('profileImage = ?');
       values.push(dto.photo);
     }
 
@@ -152,6 +164,39 @@ export class UsersService {
     return {
       message: 'تم تحديث الملف الشخصي بنجاح',
       user: await this.findOne(userId),
+    };
+  }
+
+  // ── Upload/Update Profile Photo via FormData ──────────────────────
+  async updateProfilePhoto(userId: number, file: Express.Multer.File, req: any) {
+    if (!file) {
+      throw new BadRequestException('يرجى اختيار صورة ورفعها في حقل photo');
+    }
+
+    const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
+    const protocol = req?.protocol || 'http';
+    const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
+    const photoUrl = `${baseUrl}/uploads/${file.filename}`;
+
+    const db = this.databaseService.db;
+    const user = db
+      .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
+      .get(userId) as any;
+
+    if (!user) {
+      throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
+    }
+
+    db.prepare(
+      "UPDATE users SET photo = ?, profileImage = ?, updatedAt = datetime('now') WHERE id = ?"
+    ).run(photoUrl, photoUrl, userId);
+
+    const updatedUser = await this.findOne(userId);
+
+    return {
+      message: 'تم تحديث الصورة الشخصية بنجاح',
+      photo: photoUrl,
+      user: updatedUser,
     };
   }
 

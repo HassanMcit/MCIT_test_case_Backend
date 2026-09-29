@@ -8,7 +8,12 @@ export declare class UsersService {
     create(dto: CreateUserDto): Promise<any>;
     findAll(): Promise<any[]>;
     findOne(id: number): Promise<any>;
-    updateProfile(userId: number, dto: UpdateProfileDto): Promise<any>;
+    updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any): Promise<any>;
+    updateProfilePhoto(userId: number, file: Express.Multer.File, req: any): Promise<{
+        message: string;
+        photo: string;
+        user: any;
+    }>;
     assignProject(userId: number, dto: AssignProjectDto): Promise<{
         message: string;
         assignment: {

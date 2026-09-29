@@ -22,6 +22,22 @@ export declare class UsersController {
         message: string;
     }>;
     getProfile(req: any): Promise<any>;
-    updateProfile(req: any, dto: UpdateProfileDto): Promise<any>;
+    updateProfile(req: any, dto: UpdateProfileDto, file?: Express.Multer.File): Promise<any>;
+    updateProfilePost(req: any, dto: UpdateProfileDto, file?: Express.Multer.File): Promise<any>;
+    uploadProfilePhotoPost(req: any, file: Express.Multer.File): Promise<{
+        message: string;
+        photo: string;
+        user: any;
+    }>;
+    uploadProfilePhotoPatch(req: any, file: Express.Multer.File): Promise<{
+        message: string;
+        photo: string;
+        user: any;
+    }>;
+    uploadProfilePhotoPut(req: any, file: Express.Multer.File): Promise<{
+        message: string;
+        photo: string;
+        user: any;
+    }>;
     findOne(id: number): Promise<any>;
 }

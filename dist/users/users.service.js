@@ -131,7 +131,7 @@ let UsersService = class UsersService {
             assignedProjects,
         };
     }
-    async updateProfile(userId, dto) {
+    async updateProfile(userId, dto, file, req) {
         const db = this.databaseService.db;
         const user = db
             .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
@@ -141,12 +141,24 @@ let UsersService = class UsersService {
         }
         const updates = [];
         const values = [];
-        if (dto.name !== undefined) {
+        if (dto?.name !== undefined && dto.name.trim() !== '') {
             updates.push('name = ?');
-            values.push(dto.name);
+            values.push(dto.name.trim());
         }
-        if (dto.photo !== undefined) {
+        if (file && req) {
+            const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
+            const protocol = req?.protocol || 'http';
+            const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
+            const photoUrl = `${baseUrl}/uploads/${file.filename}`;
             updates.push('photo = ?');
+            values.push(photoUrl);
+            updates.push('profileImage = ?');
+            values.push(photoUrl);
+        }
+        else if (dto?.photo !== undefined) {
+            updates.push('photo = ?');
+            values.push(dto.photo);
+            updates.push('profileImage = ?');
             values.push(dto.photo);
         }
         if (updates.length === 0) {
@@ -158,6 +170,29 @@ let UsersService = class UsersService {
         return {
             message: 'تم تحديث الملف الشخصي بنجاح',
             user: await this.findOne(userId),
+        };
+    }
+    async updateProfilePhoto(userId, file, req) {
+        if (!file) {
+            throw new common_1.BadRequestException('يرجى اختيار صورة ورفعها في حقل photo');
+        }
+        const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
+        const protocol = req?.protocol || 'http';
+        const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
+        const photoUrl = `${baseUrl}/uploads/${file.filename}`;
+        const db = this.databaseService.db;
+        const user = db
+            .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
+            .get(userId);
+        if (!user) {
+            throw new common_1.NotFoundException(`المستخدم رقم #${userId} غير موجود`);
+        }
+        db.prepare("UPDATE users SET photo = ?, profileImage = ?, updatedAt = datetime('now') WHERE id = ?").run(photoUrl, photoUrl, userId);
+        const updatedUser = await this.findOne(userId);
+        return {
+            message: 'تم تحديث الصورة الشخصية بنجاح',
+            photo: photoUrl,
+            user: updatedUser,
         };
     }
     async assignProject(userId, dto) {

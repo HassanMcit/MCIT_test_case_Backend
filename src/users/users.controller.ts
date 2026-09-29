@@ -3,12 +3,16 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
   Request,
   ParseIntPipe,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,11 +20,45 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import * as fs from 'fs';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+
+const multerPhotoOptions = {
+  storage: diskStorage({
+    destination: (req, file, cb) => {
+      const dir = join(process.cwd(), 'uploads');
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const ext = extname(file.originalname).toLowerCase() || '.png';
+      cb(null, `profile-${uniqueSuffix}${ext}`);
+    },
+  }),
+  fileFilter: (req: any, file: any, cb: any) => {
+    if (!file.mimetype || file.mimetype.startsWith('image/')) {
+      return cb(null, true);
+    }
+    cb(
+      new BadRequestException(
+        'الملف المرفوع يجب أن يكون صورة',
+      ),
+      false,
+    );
+  },
+};
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -126,13 +164,172 @@ export class UsersController {
 
   /**
    * PATCH /api/users/profile
-   * Update current user's own profile (name, profileImage)
+   * Update current user's own profile (name, photo via FormData or JSON)
    */
   @Patch('profile')
-  @ApiOperation({ summary: 'Update current user profile (name, avatar)' })
-  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
-  updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
-    return this.usersService.updateProfile(req.user.id, dto);
+  @UseInterceptors(FileInterceptor('photo', multerPhotoOptions))
+  @ApiOperation({
+    summary: 'Update current user profile (name, photo - any file size)',
+    description: 'تحديث بيانات المستخدم. يدعم رفع صورة شخصية بأي حجم عبر multipart/form-data في حقل photo، أو تحديث الاسم في حقل name',
+  })
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'اسم المستخدم (اختياري)',
+          example: 'Hassan Ali',
+        },
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'ملف الصورة الشخصية (أي صيغة صورة وبأي حجم بدون حد أقصى)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'تم تحديث الملف الشخصي بنجاح' })
+  updateProfile(
+    @Request() req: any,
+    @Body() dto: UpdateProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfile(req.user.id, dto, file, req);
+  }
+
+  /**
+   * POST /api/users/profile
+   * Alternative POST endpoint to update current user profile
+   */
+  @Post('profile')
+  @UseInterceptors(FileInterceptor('photo', multerPhotoOptions))
+  @ApiOperation({
+    summary: 'Update current user profile via POST (name, photo - any file size)',
+    description: 'تحديث بيانات المستخدم. يدعم رفع صورة شخصية بأي حجم عبر multipart/form-data في حقل photo، أو تحديث الاسم في حقل name',
+  })
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'اسم المستخدم (اختياري)',
+          example: 'Hassan Ali',
+        },
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'ملف الصورة الشخصية (أي صيغة وبأي حجم بدون حد أقصى)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'تم تحديث الملف الشخصي بنجاح' })
+  updateProfilePost(
+    @Request() req: any,
+    @Body() dto: UpdateProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfile(req.user.id, dto, file, req);
+  }
+
+  /**
+   * POST /api/users/profile/photo
+   * Upload & update current user profile image via FormData
+   */
+  @Post('profile/photo')
+  @UseInterceptors(FileInterceptor('photo', multerPhotoOptions))
+  @ApiOperation({
+    summary: 'Upload and update profile photo via FormData (any size)',
+    description: 'رفع صورة شخصية للمستخدم بدون حد أقصى للحجم في حقل photo',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'ملف الصورة الشخصية (أي حجم)',
+        },
+      },
+      required: ['photo'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Photo uploaded and profile updated' })
+  uploadProfilePhotoPost(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfilePhoto(req.user.id, file, req);
+  }
+
+  /**
+   * PATCH /api/users/profile/photo
+   * Upload & update current user profile image via FormData
+   */
+  @Patch('profile/photo')
+  @UseInterceptors(FileInterceptor('photo', multerPhotoOptions))
+  @ApiOperation({
+    summary: 'Upload and update profile photo via FormData (any size)',
+    description: 'رفع صورة شخصية للمستخدم بدون حد أقصى للحجم في حقل photo',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'ملف الصورة الشخصية (أي حجم)',
+        },
+      },
+      required: ['photo'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Photo uploaded and profile updated' })
+  uploadProfilePhotoPatch(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfilePhoto(req.user.id, file, req);
+  }
+
+  /**
+   * PUT /api/users/profile/photo
+   * Upload & update current user profile image via FormData
+   */
+  @Put('profile/photo')
+  @UseInterceptors(FileInterceptor('photo', multerPhotoOptions))
+  @ApiOperation({
+    summary: 'Upload and update profile photo via FormData (any size)',
+    description: 'رفع صورة شخصية للمستخدم بدون حد أقصى للحجم في حقل photo',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'ملف الصورة الشخصية (أي حجم)',
+        },
+      },
+      required: ['photo'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Photo uploaded and profile updated' })
+  uploadProfilePhotoPut(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfilePhoto(req.user.id, file, req);
   }
 
   /**

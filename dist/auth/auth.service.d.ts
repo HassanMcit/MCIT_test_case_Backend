@@ -11,7 +11,6 @@ export interface UserProfile {
     email: string;
     role: string;
     photo?: string;
-    profileImage?: string;
     createdAt: string;
 }
 export declare class AuthService {
@@ -26,7 +25,6 @@ export declare class AuthService {
             email: string;
             role: string;
             photo: string;
-            profileImage: string;
         };
     }>;
     getMe(userId: number): Promise<UserProfile>;

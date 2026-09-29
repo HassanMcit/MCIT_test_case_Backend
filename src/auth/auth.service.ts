@@ -19,7 +19,6 @@ export interface UserProfile {
   email: string;
   role: string;
   photo?: string;
-  profileImage?: string;
   createdAt: string;
 }
 
@@ -37,7 +36,7 @@ export class AuthService {
   // ── Login ──────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
     const user = this.databaseService.db
-      .prepare('SELECT id, name, email, password, role, photo, profileImage FROM users WHERE email = ?')
+      .prepare('SELECT id, name, email, password, role, photo FROM users WHERE email = ?')
       .get(dto.email) as unknown as UserRow | undefined;
 
     if (!user) {
@@ -53,7 +52,7 @@ export class AuthService {
     const token = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-    const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
+    const userPhoto = user.photo || DEFAULT_PHOTO;
     return {
       access_token: token,
       user: {
@@ -62,7 +61,6 @@ export class AuthService {
         email: user.email,
         role: user.role,
         photo: userPhoto,
-        profileImage: userPhoto,
       },
     };
   }
@@ -70,18 +68,17 @@ export class AuthService {
   // ── Get current user ───────────────────────────────────────────────
   async getMe(userId: number): Promise<UserProfile> {
     const user = this.databaseService.db
-      .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users WHERE id = ?')
+      .prepare('SELECT id, name, email, role, photo, createdAt FROM users WHERE id = ?')
       .get(userId) as unknown as UserProfile | undefined;
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
     const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-    const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
+    const userPhoto = user.photo || DEFAULT_PHOTO;
     return {
       ...user,
       photo: userPhoto,
-      profileImage: userPhoto,
     };
   }
 

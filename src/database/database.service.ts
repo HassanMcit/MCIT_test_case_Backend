@@ -60,7 +60,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         password TEXT NOT NULL,
         role TEXT DEFAULT 'tester',
         photo TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
-        profileImage TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         createdAt TEXT DEFAULT (datetime('now')),
         updatedAt TEXT DEFAULT (datetime('now'))
       );
@@ -133,15 +132,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       this.db.exec('PRAGMA foreign_keys = ON;');
 
       const insertUser = this.db.prepare(`
-        INSERT INTO users (id, name, email, password, role, photo, profileImage)
-        VALUES (1, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, name, email, password, role, photo)
+        VALUES (1, ?, ?, ?, ?, ?)
       `);
 
-      insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png', 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png');
+      insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png');
       console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with new password.');
     } else {
       this.db
-        .prepare("UPDATE users SET password = ?, photo = COALESCE(photo, 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png'), profileImage = COALESCE(profileImage, 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png') WHERE id = ?")
+        .prepare("UPDATE users SET password = ?, photo = COALESCE(photo, 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png') WHERE id = ?")
         .run(defaultPassword, hassan.id);
       console.log('✅ Password updated for Hassan Ali (id: 1).');
     }

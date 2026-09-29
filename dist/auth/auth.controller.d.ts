@@ -15,7 +15,6 @@ export declare class AuthController {
             email: string;
             role: string;
             photo: string;
-            profileImage: string;
         };
     }>;
     getMe(req: any): Promise<import("./auth.service").UserProfile>;

@@ -54,7 +54,7 @@ let AuthService = class AuthService {
     }
     async login(dto) {
         const user = this.databaseService.db
-            .prepare('SELECT id, name, email, password, role, photo, profileImage FROM users WHERE email = ?')
+            .prepare('SELECT id, name, email, password, role, photo FROM users WHERE email = ?')
             .get(dto.email);
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid email or password');
@@ -66,7 +66,7 @@ let AuthService = class AuthService {
         const payload = { sub: user.id, email: user.email, role: user.role };
         const token = this.jwtService.sign(payload, { expiresIn: '7d' });
         const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-        const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
+        const userPhoto = user.photo || DEFAULT_PHOTO;
         return {
             access_token: token,
             user: {
@@ -75,23 +75,21 @@ let AuthService = class AuthService {
                 email: user.email,
                 role: user.role,
                 photo: userPhoto,
-                profileImage: userPhoto,
             },
         };
     }
     async getMe(userId) {
         const user = this.databaseService.db
-            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users WHERE id = ?')
+            .prepare('SELECT id, name, email, role, photo, createdAt FROM users WHERE id = ?')
             .get(userId);
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
         const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-        const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
+        const userPhoto = user.photo || DEFAULT_PHOTO;
         return {
             ...user,
             photo: userPhoto,
-            profileImage: userPhoto,
         };
     }
     async changePassword(userId, dto) {

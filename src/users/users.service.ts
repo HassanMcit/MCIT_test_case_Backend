@@ -30,10 +30,10 @@ export class UsersService {
     const defaultPhoto = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
     const result = db
       .prepare(`
-        INSERT INTO users (name, email, password, role, photo, profileImage)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO users (name, email, password, role, photo)
+        VALUES (?, ?, ?, ?, ?)
       `)
-      .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto, defaultPhoto);
+      .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto);
 
     const newId = Number(result.lastInsertRowid);
     return this.findOne(newId);
@@ -43,7 +43,7 @@ export class UsersService {
   async findAll() {
     const db = this.databaseService.db;
     const users = db
-      .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users ORDER BY id ASC')
+      .prepare('SELECT id, name, email, role, photo, createdAt FROM users ORDER BY id ASC')
       .all() as any[];
 
     const stmtProjects = db.prepare(`
@@ -62,11 +62,10 @@ export class UsersService {
     return users.map((u) => {
       const assignedProjects = stmtProjects.all(u.id);
       const testCasesCount = (stmtCounts.get(u.id) as { count: number }).count;
-      const userPhoto = u.photo || u.profileImage || DEFAULT_PHOTO;
+      const userPhoto = u.photo || DEFAULT_PHOTO;
       return {
         ...u,
         photo: userPhoto,
-        profileImage: userPhoto,
         _count: {
           testCases: testCasesCount,
           assignedProjects: assignedProjects.length,
@@ -80,7 +79,7 @@ export class UsersService {
   async findOne(id: number) {
     const db = this.databaseService.db;
     const user = db
-      .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users WHERE id = ?')
+      .prepare('SELECT id, name, email, role, photo, createdAt FROM users WHERE id = ?')
       .get(id) as any;
 
     if (!user) {
@@ -104,11 +103,10 @@ export class UsersService {
       .all(id);
 
     const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-    const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
+    const userPhoto = user.photo || DEFAULT_PHOTO;
     return {
       ...user,
       photo: userPhoto,
-      profileImage: userPhoto,
       _count: {
         testCases: testCaseCount,
         assignedProjects: assignedProjects.length,
@@ -137,12 +135,9 @@ export class UsersService {
       values.push(dto.name);
     }
 
-    const newPhoto = dto.photo || dto.profileImage;
-    if (newPhoto !== undefined) {
+    if (dto.photo !== undefined) {
       updates.push('photo = ?');
-      values.push(newPhoto);
-      updates.push('profileImage = ?');
-      values.push(newPhoto);
+      values.push(dto.photo);
     }
 
     if (updates.length === 0) {

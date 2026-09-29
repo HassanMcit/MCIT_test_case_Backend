@@ -488,7 +488,7 @@ async function login(email: string, password: string) {
   "name": "Hassan Ali",
   "email": "h.ali@mcit.gov.eg",
   "role": "admin",
-  "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
+  "photo": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
   "createdAt": "2026-09-27 12:51:07",
   "_count": {
     "testCases": 5,
@@ -509,7 +509,7 @@ async function login(email: string, password: string) {
 ```json
 {
   "name": "Hassan Ali",
-  "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png"
+  "photo": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png"
 }
 ```
 
@@ -522,7 +522,7 @@ async function login(email: string, password: string) {
     "name": "Hassan Ali",
     "email": "h.ali@mcit.gov.eg",
     "role": "admin",
-    "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
+    "photo": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
     "createdAt": "2026-09-27 12:51:07"
   }
 }

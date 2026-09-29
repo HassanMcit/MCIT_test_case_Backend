@@ -34,7 +34,7 @@
 
 النظام يحتوي على مستويين من الأدوار (`role`):
 1. **المدير (`admin`):**
-   - الحساب الافتراضي الرئيسي: `h.ali@mcit.gov.eg` / `password123`.
+   - الحساب الافتراضي الرئيسي: `h.ali@mcit.gov.eg` / `Mm$$1020`.
    - يملك جميع الصلاحيات في النظام.
    - **الصلاحية الحصرية:** هو **الوحيد** المصرح له بإضافة مستخدمين وفاحصين جدد عبر الرابط الكامل:
      `https://mcit-test-case-backend.onrender.com/api/users`
@@ -77,7 +77,7 @@
 ```json
 {
   "email": "h.ali@mcit.gov.eg",
-  "password": "password123"
+  "password": "Mm$$1020"
 }
 ```
 - **قواعد الـ Regex للمدخلات:**
@@ -973,7 +973,7 @@
 
 1. **تسجيل الدخول (Login):**
    - الرابط: `POST https://mcit-test-case-backend.onrender.com/api/auth/login`
-   - البودي: `{"email": "h.ali@mcit.gov.eg", "password": "password123"}`
+   - البودي: `{"email": "h.ali@mcit.gov.eg", "password": "Mm$$1020"}`
    - سيعود لك `access_token` صالح لمدة **7 أيام كاملة**.
 2. **إنشاء حساب فاحص جديد (Admin Only):**
    - الرابط: `POST https://mcit-test-case-backend.onrender.com/api/users`

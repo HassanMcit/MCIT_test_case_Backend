@@ -121,6 +121,7 @@ let DatabaseService = class DatabaseService {
     `);
     }
     seedInitialData() {
+        const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);
         const hassan = this.db
             .prepare('SELECT id FROM users WHERE email = ?')
             .get('h.ali@mcit.gov.eg');
@@ -134,13 +135,18 @@ let DatabaseService = class DatabaseService {
             }
             catch { }
             this.db.exec('PRAGMA foreign_keys = ON;');
-            const defaultPassword = bcrypt.hashSync('password123', 10);
             const insertUser = this.db.prepare(`
         INSERT INTO users (id, name, email, password, role)
         VALUES (1, ?, ?, ?, ?)
       `);
             insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin');
-            console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active.');
+            console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with new password.');
+        }
+        else {
+            this.db
+                .prepare('UPDATE users SET password = ? WHERE id = ?')
+                .run(defaultPassword, hassan.id);
+            console.log('✅ Password updated for Hassan Ali (id: 1).');
         }
     }
 };

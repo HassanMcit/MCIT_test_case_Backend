@@ -60,20 +60,20 @@ let UsersService = class UsersService {
         }
         const hashedPassword = bcrypt.hashSync(dto.password, 10);
         const userRole = dto.role || 'user';
-        const defaultProfileImage = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const defaultPhoto = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
         const result = db
             .prepare(`
-        INSERT INTO users (name, email, password, role, profileImage)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (name, email, password, role, photo, profileImage)
+        VALUES (?, ?, ?, ?, ?, ?)
       `)
-            .run(dto.name, dto.email, hashedPassword, userRole, defaultProfileImage);
+            .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto, defaultPhoto);
         const newId = Number(result.lastInsertRowid);
         return this.findOne(newId);
     }
     async findAll() {
         const db = this.databaseService.db;
         const users = db
-            .prepare('SELECT id, name, email, role, profileImage, createdAt FROM users ORDER BY id ASC')
+            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users ORDER BY id ASC')
             .all();
         const stmtProjects = db.prepare(`
       SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
@@ -83,13 +83,15 @@ let UsersService = class UsersService {
       ORDER BY pa.assignedAt DESC
     `);
         const stmtCounts = db.prepare('SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?');
-        const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
         return users.map((u) => {
             const assignedProjects = stmtProjects.all(u.id);
             const testCasesCount = stmtCounts.get(u.id).count;
+            const userPhoto = u.photo || u.profileImage || DEFAULT_PHOTO;
             return {
                 ...u,
-                profileImage: u.profileImage || DEFAULT_PROFILE_IMAGE,
+                photo: userPhoto,
+                profileImage: userPhoto,
                 _count: {
                     testCases: testCasesCount,
                     assignedProjects: assignedProjects.length,
@@ -101,7 +103,7 @@ let UsersService = class UsersService {
     async findOne(id) {
         const db = this.databaseService.db;
         const user = db
-            .prepare('SELECT id, name, email, role, profileImage, createdAt FROM users WHERE id = ?')
+            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt FROM users WHERE id = ?')
             .get(id);
         if (!user) {
             throw new common_1.NotFoundException(`المستخدم رقم #${id} غير موجود`);
@@ -118,10 +120,12 @@ let UsersService = class UsersService {
         ORDER BY pa.assignedAt DESC
       `)
             .all(id);
-        const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const userPhoto = user.photo || user.profileImage || DEFAULT_PHOTO;
         return {
             ...user,
-            profileImage: user.profileImage || DEFAULT_PROFILE_IMAGE,
+            photo: userPhoto,
+            profileImage: userPhoto,
             _count: {
                 testCases: testCaseCount,
                 assignedProjects: assignedProjects.length,
@@ -143,9 +147,12 @@ let UsersService = class UsersService {
             updates.push('name = ?');
             values.push(dto.name);
         }
-        if (dto.profileImage !== undefined) {
+        const newPhoto = dto.photo || dto.profileImage;
+        if (newPhoto !== undefined) {
+            updates.push('photo = ?');
+            values.push(newPhoto);
             updates.push('profileImage = ?');
-            values.push(dto.profileImage);
+            values.push(newPhoto);
         }
         if (updates.length === 0) {
             return this.findOne(userId);

@@ -10,6 +10,7 @@ export interface UserProfile {
     name: string;
     email: string;
     role: string;
+    photo?: string;
     profileImage?: string;
     createdAt: string;
 }
@@ -24,6 +25,7 @@ export declare class AuthService {
             name: string;
             email: string;
             role: string;
+            photo: string;
             profileImage: string;
         };
     }>;

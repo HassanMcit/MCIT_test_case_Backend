@@ -475,6 +475,61 @@ async function login(email: string, password: string) {
 
 ---
 
+### 5.3 جلب الملف الشخصي للمستخدم الحالي (Get Current User Profile)
+- **الرابط:** `GET /api/users/profile`
+- **الوصول:** محمي (أي مستخدم مسجل دخوله)
+- **الوصف:** يرجع بيانات الحساب الحالية للمستخدم مع المشاريع المسندة إليه ورابط الصورة الشخصية.
+- **Default Profile Image:** `https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png`
+
+#### استجابة السيرفر (JSON):
+```json
+{
+  "id": 1,
+  "name": "Hassan Ali",
+  "email": "h.ali@mcit.gov.eg",
+  "role": "admin",
+  "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
+  "createdAt": "2026-09-27 12:51:07",
+  "_count": {
+    "testCases": 5,
+    "assignedProjects": 2
+  },
+  "assignedProjects": []
+}
+```
+
+---
+
+### 5.4 تعديل الملف الشخصي والصورة (Update Profile & Photo)
+- **الرابط:** `PATCH /api/users/profile`
+- **الوصول:** محمي (أي مستخدم مسجل دخوله)
+- **الوصف:** تعديل الاسم أو الصورة الشخصية للمستخدم الحالي (يدعم Base64 أو رابط صورة).
+
+#### طلب الـ Request (JSON):
+```json
+{
+  "name": "Hassan Ali",
+  "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png"
+}
+```
+
+#### استجابة السيرفر (JSON):
+```json
+{
+  "message": "تم تحديث الملف الشخصي بنجاح",
+  "user": {
+    "id": 1,
+    "name": "Hassan Ali",
+    "email": "h.ali@mcit.gov.eg",
+    "role": "admin",
+    "profileImage": "https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png",
+    "createdAt": "2026-09-27 12:51:07"
+  }
+}
+```
+
+---
+
 ## 🛠️ دالة موحدة جاهزة للاستخدام في تطبيقك (ApiClient Helper)
 
 يمكنك نسخ هذا الكود واستخدامه مباشرة في مشروع الـ Next.js / React لربط كافة الشاشات:

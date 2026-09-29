@@ -18,11 +18,13 @@ export interface UserProfile {
   name: string;
   email: string;
   role: string;
+  profileImage?: string;
   createdAt: string;
 }
 
 interface UserRow extends UserProfile {
   password: string;
+  profileImage?: string;
 }
 
 @Injectable()
@@ -35,7 +37,7 @@ export class AuthService {
   // ── Login ──────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
     const user = this.databaseService.db
-      .prepare('SELECT id, name, email, password, role FROM users WHERE email = ?')
+      .prepare('SELECT id, name, email, password, role, profileImage FROM users WHERE email = ?')
       .get(dto.email) as unknown as UserRow | undefined;
 
     if (!user) {
@@ -50,6 +52,7 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload, { expiresIn: '7d' });
 
+    const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
     return {
       access_token: token,
       user: {
@@ -57,6 +60,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        profileImage: user.profileImage || DEFAULT_PROFILE_IMAGE,
       },
     };
   }
@@ -64,13 +68,17 @@ export class AuthService {
   // ── Get current user ───────────────────────────────────────────────
   async getMe(userId: number): Promise<UserProfile> {
     const user = this.databaseService.db
-      .prepare('SELECT id, name, email, role, createdAt FROM users WHERE id = ?')
+      .prepare('SELECT id, name, email, role, profileImage, createdAt FROM users WHERE id = ?')
       .get(userId) as unknown as UserProfile | undefined;
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return user;
+    const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+    return {
+      ...user,
+      profileImage: user.profileImage || DEFAULT_PROFILE_IMAGE,
+    };
   }
 
   // ── Change Password (Authenticated) ────────────────────────────────

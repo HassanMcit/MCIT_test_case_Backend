@@ -1,6 +1,7 @@
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
@@ -20,5 +21,7 @@ export declare class UsersController {
     unassignProject(req: any, userId: number, projectId: number): Promise<{
         message: string;
     }>;
+    getProfile(req: any): Promise<any>;
+    updateProfile(req: any, dto: UpdateProfileDto): Promise<any>;
     findOne(id: number): Promise<any>;
 }

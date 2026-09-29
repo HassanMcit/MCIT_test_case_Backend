@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -19,6 +20,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -109,6 +111,28 @@ export class UsersController {
       throw new ForbiddenException('غير مصرح لك. إلغاء إسناد المشاريع مخصص لمدير النظام (admin) فقط');
     }
     return this.usersService.unassignProject(userId, projectId);
+  }
+
+  /**
+   * GET /api/users/profile
+   * Get current user's own profile
+   */
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  @ApiResponse({ status: 200, description: 'Current user profile with assigned projects' })
+  getProfile(@Request() req: any) {
+    return this.usersService.findOne(req.user.id);
+  }
+
+  /**
+   * PATCH /api/users/profile
+   * Update current user's own profile (name, profileImage)
+   */
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update current user profile (name, avatar)' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(req.user.id, dto);
   }
 
   /**

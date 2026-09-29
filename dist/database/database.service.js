@@ -53,12 +53,23 @@ let DatabaseService = class DatabaseService {
         this.db.exec('PRAGMA foreign_keys = ON;');
         this.db.exec('PRAGMA journal_mode = WAL;');
         this.initTables();
+        this.runMigrations();
         this.seedInitialData();
     }
     onModuleDestroy() {
         if (this.db) {
             this.db.close();
         }
+    }
+    runMigrations() {
+        const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const columns = this.db.prepare("PRAGMA table_info(users)").all();
+        const hasProfileImage = columns.some((c) => c.name === 'profileImage');
+        if (!hasProfileImage) {
+            this.db.exec(`ALTER TABLE users ADD COLUMN profileImage TEXT DEFAULT '${DEFAULT_PROFILE_IMAGE}'`);
+            console.log('✅ Migration: Added profileImage column to users table');
+        }
+        this.db.prepare("UPDATE users SET profileImage = ? WHERE profileImage IS NULL OR profileImage = ''").run(DEFAULT_PROFILE_IMAGE);
     }
     initTables() {
         this.db.exec(`
@@ -68,6 +79,7 @@ let DatabaseService = class DatabaseService {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'tester',
+        profileImage TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         createdAt TEXT DEFAULT (datetime('now')),
         updatedAt TEXT DEFAULT (datetime('now'))
       );
@@ -136,15 +148,15 @@ let DatabaseService = class DatabaseService {
             catch { }
             this.db.exec('PRAGMA foreign_keys = ON;');
             const insertUser = this.db.prepare(`
-        INSERT INTO users (id, name, email, password, role)
-        VALUES (1, ?, ?, ?, ?)
+        INSERT INTO users (id, name, email, password, role, profileImage)
+        VALUES (1, ?, ?, ?, ?, ?)
       `);
-            insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin');
+            insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png');
             console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with new password.');
         }
         else {
             this.db
-                .prepare('UPDATE users SET password = ? WHERE id = ?')
+                .prepare("UPDATE users SET password = ?, profileImage = COALESCE(profileImage, 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png') WHERE id = ?")
                 .run(defaultPassword, hassan.id);
             console.log('✅ Password updated for Hassan Ali (id: 1).');
         }

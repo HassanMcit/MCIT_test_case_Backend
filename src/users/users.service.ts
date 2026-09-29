@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -26,12 +27,13 @@ export class UsersService {
     const hashedPassword = bcrypt.hashSync(dto.password, 10);
     const userRole = dto.role || 'user';
 
+    const defaultProfileImage = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
     const result = db
       .prepare(`
-        INSERT INTO users (name, email, password, role)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users (name, email, password, role, profileImage)
+        VALUES (?, ?, ?, ?, ?)
       `)
-      .run(dto.name, dto.email, hashedPassword, userRole);
+      .run(dto.name, dto.email, hashedPassword, userRole, defaultProfileImage);
 
     const newId = Number(result.lastInsertRowid);
     return this.findOne(newId);
@@ -41,7 +43,7 @@ export class UsersService {
   async findAll() {
     const db = this.databaseService.db;
     const users = db
-      .prepare('SELECT id, name, email, role, createdAt FROM users ORDER BY id ASC')
+      .prepare('SELECT id, name, email, role, profileImage, createdAt FROM users ORDER BY id ASC')
       .all() as any[];
 
     const stmtProjects = db.prepare(`
@@ -56,11 +58,13 @@ export class UsersService {
       'SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?',
     );
 
+    const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
     return users.map((u) => {
       const assignedProjects = stmtProjects.all(u.id);
       const testCasesCount = (stmtCounts.get(u.id) as { count: number }).count;
       return {
         ...u,
+        profileImage: u.profileImage || DEFAULT_PROFILE_IMAGE,
         _count: {
           testCases: testCasesCount,
           assignedProjects: assignedProjects.length,
@@ -74,7 +78,7 @@ export class UsersService {
   async findOne(id: number) {
     const db = this.databaseService.db;
     const user = db
-      .prepare('SELECT id, name, email, role, createdAt FROM users WHERE id = ?')
+      .prepare('SELECT id, name, email, role, profileImage, createdAt FROM users WHERE id = ?')
       .get(id) as any;
 
     if (!user) {
@@ -97,13 +101,55 @@ export class UsersService {
       `)
       .all(id);
 
+    const DEFAULT_PROFILE_IMAGE = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
     return {
       ...user,
+      profileImage: user.profileImage || DEFAULT_PROFILE_IMAGE,
       _count: {
         testCases: testCaseCount,
         assignedProjects: assignedProjects.length,
       },
       assignedProjects,
+    };
+  }
+
+  // ── PATCH /api/users/profile (Update own profile) ─────────────────
+  async updateProfile(userId: number, dto: UpdateProfileDto) {
+    const db = this.databaseService.db;
+
+    const user = db
+      .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
+      .get(userId) as any;
+
+    if (!user) {
+      throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (dto.name !== undefined) {
+      updates.push('name = ?');
+      values.push(dto.name);
+    }
+
+    if (dto.profileImage !== undefined) {
+      updates.push('profileImage = ?');
+      values.push(dto.profileImage);
+    }
+
+    if (updates.length === 0) {
+      return this.findOne(userId);
+    }
+
+    updates.push("updatedAt = datetime('now')");
+    values.push(userId);
+
+    db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+    return {
+      message: 'تم تحديث الملف الشخصي بنجاح',
+      user: await this.findOne(userId),
     };
   }
 

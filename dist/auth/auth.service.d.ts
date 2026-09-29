@@ -10,6 +10,7 @@ export interface UserProfile {
     name: string;
     email: string;
     role: string;
+    profileImage?: string;
     createdAt: string;
 }
 export declare class AuthService {
@@ -23,6 +24,7 @@ export declare class AuthService {
             name: string;
             email: string;
             role: string;
+            profileImage: string;
         };
     }>;
     getMe(userId: number): Promise<UserProfile>;

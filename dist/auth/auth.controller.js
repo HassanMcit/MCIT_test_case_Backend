@@ -26,11 +26,16 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
-    login(dto) {
-        return this.authService.login(dto);
+    login(dto, req, res) {
+        if (res?.clearCookie) {
+            for (let i = 0; i <= 6; i++) {
+                res.clearCookie(`authjs.session-token.${i}`, { path: '/' });
+            }
+        }
+        return this.authService.login(dto, req);
     }
     getMe(req) {
-        return this.authService.getMe(req.user.id);
+        return this.authService.getMe(req.user.id, req);
     }
     changePassword(req, dto) {
         return this.authService.changePassword(req.user.id, dto);
@@ -44,7 +49,13 @@ let AuthController = class AuthController {
     resetPassword(dto) {
         return this.authService.resetPassword(dto);
     }
-    logout() {
+    logout(res) {
+        if (res?.clearCookie) {
+            res.clearCookie('authjs.session-token', { path: '/' });
+            for (let i = 0; i <= 6; i++) {
+                res.clearCookie(`authjs.session-token.${i}`, { path: '/' });
+            }
+        }
         return { message: 'Logged out successfully' };
     }
 };
@@ -71,8 +82,10 @@ __decorate([
     }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([
@@ -191,8 +204,9 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)('access-token'),
     (0, swagger_1.ApiOperation)({ summary: 'Logout – invalidate session on client side' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Logout successful' }),
+    __param(0, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "logout", null);
 exports.AuthController = AuthController = __decorate([

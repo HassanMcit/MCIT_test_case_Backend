@@ -52,9 +52,9 @@ let AuthService = class AuthService {
         this.databaseService = databaseService;
         this.jwtService = jwtService;
     }
-    async login(dto) {
+    async login(dto, req) {
         const user = this.databaseService.db
-            .prepare('SELECT id, name, email, password, role, photo FROM users WHERE email = ?')
+            .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE email = ?')
             .get(dto.email);
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid email or password');
@@ -65,8 +65,7 @@ let AuthService = class AuthService {
         }
         const payload = { sub: user.id, email: user.email, role: user.role };
         const token = this.jwtService.sign(payload, { expiresIn: '7d' });
-        const defaultPhoto = this.databaseService.getPersistedPhoto();
-        const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
+        const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
             access_token: token,
             user: {
@@ -74,22 +73,27 @@ let AuthService = class AuthService {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                photo: userPhoto,
+                photo: photoUrl,
+                profileImage: photoUrl,
             },
         };
     }
-    async getMe(userId) {
+    async getMe(userId, req) {
         const user = this.databaseService.db
-            .prepare('SELECT id, name, email, role, photo, createdAt FROM users WHERE id = ?')
+            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users WHERE id = ?')
             .get(userId);
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
-        const defaultPhoto = this.databaseService.getPersistedPhoto();
-        const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
+        const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
-            ...user,
-            photo: userPhoto,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            photo: photoUrl,
+            profileImage: photoUrl,
+            createdAt: user.createdAt,
         };
     }
     async changePassword(userId, dto) {

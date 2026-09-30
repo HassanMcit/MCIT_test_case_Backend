@@ -6,6 +6,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -50,8 +51,17 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(
+    @Body() dto: LoginDto,
+    @Request() req: any,
+    @Res({ passthrough: true }) res?: any,
+  ) {
+    if (res?.clearCookie) {
+      for (let i = 0; i <= 6; i++) {
+        res.clearCookie(`authjs.session-token.${i}`, { path: '/' });
+      }
+    }
+    return this.authService.login(dto, req);
   }
 
   /**
@@ -76,7 +86,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid token' })
   getMe(@Request() req: any) {
-    return this.authService.getMe(req.user.id);
+    return this.authService.getMe(req.user.id, req);
   }
 
   /**
@@ -182,8 +192,13 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout – invalidate session on client side' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
-  logout() {
-    // JWT is stateless. For production add a blacklist/Redis store here.
+  logout(@Res({ passthrough: true }) res?: any) {
+    if (res?.clearCookie) {
+      res.clearCookie('authjs.session-token', { path: '/' });
+      for (let i = 0; i <= 6; i++) {
+        res.clearCookie(`authjs.session-token.${i}`, { path: '/' });
+      }
+    }
     return { message: 'Logged out successfully' };
   }
 }

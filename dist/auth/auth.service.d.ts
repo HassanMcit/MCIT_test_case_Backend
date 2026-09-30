@@ -11,13 +11,14 @@ export interface UserProfile {
     email: string;
     role: string;
     photo?: string;
+    profileImage?: string;
     createdAt: string;
 }
 export declare class AuthService {
     private readonly databaseService;
     private readonly jwtService;
     constructor(databaseService: DatabaseService, jwtService: JwtService);
-    login(dto: LoginDto): Promise<{
+    login(dto: LoginDto, req?: any): Promise<{
         access_token: string;
         user: {
             id: number;
@@ -25,9 +26,10 @@ export declare class AuthService {
             email: string;
             role: string;
             photo: string;
+            profileImage: string;
         };
     }>;
-    getMe(userId: number): Promise<UserProfile>;
+    getMe(userId: number, req?: any): Promise<UserProfile>;
     changePassword(userId: number, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;

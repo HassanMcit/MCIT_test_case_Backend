@@ -52,29 +52,54 @@ let UsersService = class UsersService {
     constructor(databaseService) {
         this.databaseService = databaseService;
     }
-    getPhotoDataUrl(file, req) {
-        try {
-            if (file.buffer) {
-                const mime = file.mimetype || 'image/png';
-                return `data:${mime};base64,${file.buffer.toString('base64')}`;
-            }
-            const filePath = file.path || (file.filename ? path.join(process.cwd(), 'uploads', file.filename) : null);
-            if (filePath && fs.existsSync(filePath)) {
-                const buf = fs.readFileSync(filePath);
-                const mime = file.mimetype || 'image/png';
-                return `data:${mime};base64,${buf.toString('base64')}`;
+    async serveUserPhoto(userId, res) {
+        const db = this.databaseService.db;
+        const user = db
+            .prepare('SELECT id, name, photo, profileImage FROM users WHERE id = ?')
+            .get(userId);
+        const DEFAULT_PHOTO_URL = database_service_1.DatabaseService.DEFAULT_PHOTO_URL;
+        if (!user) {
+            return res.redirect(DEFAULT_PHOTO_URL);
+        }
+        const rawPhoto = user.photo || user.profileImage;
+        if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.trim() === '') {
+            return res.redirect(DEFAULT_PHOTO_URL);
+        }
+        if (rawPhoto.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk')) {
+            return res.redirect(DEFAULT_PHOTO_URL);
+        }
+        if (rawPhoto.startsWith('data:image/')) {
+            const matches = rawPhoto.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const mimeType = matches[1];
+                const buffer = Buffer.from(matches[2], 'base64');
+                res.setHeader('Content-Type', mimeType);
+                res.setHeader('Content-Length', buffer.length);
+                res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+                return res.end(buffer);
             }
         }
-        catch (err) {
-            console.error('Error generating base64 for uploaded photo:', err);
+        if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
+            if (rawPhoto.includes(`/api/users/${userId}/photo`)) {
+                return res.redirect(DEFAULT_PHOTO_URL);
+            }
+            return res.redirect(rawPhoto);
         }
-        const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
-        const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
-        const protocol = isHttps ? 'https' : (req?.protocol || 'http');
-        const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
-        return `${baseUrl}/uploads/${file.filename}`;
+        const cleanPath = rawPhoto.startsWith('/uploads/')
+            ? rawPhoto.slice(9)
+            : rawPhoto.startsWith('uploads/')
+                ? rawPhoto.slice(8)
+                : rawPhoto;
+        const diskPath = path.isAbsolute(rawPhoto)
+            ? rawPhoto
+            : path.join(process.cwd(), 'uploads', path.basename(cleanPath));
+        if (fs.existsSync(diskPath)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+            return res.sendFile(diskPath);
+        }
+        return res.redirect(DEFAULT_PHOTO_URL);
     }
-    async create(dto) {
+    async create(dto, req) {
         const db = this.databaseService.db;
         const existing = db
             .prepare('SELECT id FROM users WHERE email = ?')
@@ -92,12 +117,12 @@ let UsersService = class UsersService {
       `)
             .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto, defaultPhoto);
         const newId = Number(result.lastInsertRowid);
-        return this.findOne(newId);
+        return this.findOne(newId, req);
     }
-    async findAll() {
+    async findAll(req) {
         const db = this.databaseService.db;
         const users = db
-            .prepare('SELECT id, name, email, role, photo, createdAt FROM users ORDER BY id ASC')
+            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users ORDER BY id ASC')
             .all();
         const stmtProjects = db.prepare(`
       SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
@@ -107,14 +132,19 @@ let UsersService = class UsersService {
       ORDER BY pa.assignedAt DESC
     `);
         const stmtCounts = db.prepare('SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?');
-        const defaultPhoto = this.databaseService.getPersistedPhoto();
         return users.map((u) => {
             const assignedProjects = stmtProjects.all(u.id);
             const testCasesCount = stmtCounts.get(u.id).count;
-            const userPhoto = (u.photo && u.photo.trim() !== '') ? u.photo : defaultPhoto;
+            const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
             return {
-                ...u,
-                photo: userPhoto,
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                role: u.role,
+                photo: photoUrl,
+                profileImage: photoUrl,
+                createdAt: u.createdAt,
+                updatedAt: u.updatedAt,
                 _count: {
                     testCases: testCasesCount,
                     assignedProjects: assignedProjects.length,
@@ -123,10 +153,10 @@ let UsersService = class UsersService {
             };
         });
     }
-    async findOne(id) {
+    async findOne(id, req) {
         const db = this.databaseService.db;
         const user = db
-            .prepare('SELECT id, name, email, role, photo, createdAt FROM users WHERE id = ?')
+            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users WHERE id = ?')
             .get(id);
         if (!user) {
             throw new common_1.NotFoundException(`المستخدم رقم #${id} غير موجود`);
@@ -143,11 +173,16 @@ let UsersService = class UsersService {
         ORDER BY pa.assignedAt DESC
       `)
             .all(id);
-        const defaultPhoto = this.databaseService.getPersistedPhoto();
-        const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
+        const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
-            ...user,
-            photo: userPhoto,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            photo: photoUrl,
+            profileImage: photoUrl,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
             _count: {
                 testCases: testCaseCount,
                 assignedProjects: assignedProjects.length,
@@ -169,68 +204,55 @@ let UsersService = class UsersService {
             updates.push('name = ?');
             values.push(dto.name.trim());
         }
-        if (file && req) {
-            const photoUrl = this.getPhotoDataUrl(file, req);
+        let photoPayload = null;
+        if (file) {
             try {
-                const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
-                fs.writeFileSync(avatarFile, photoUrl, 'utf8');
+                if (file.buffer) {
+                    const mime = file.mimetype || 'image/png';
+                    photoPayload = `data:${mime};base64,${file.buffer.toString('base64')}`;
+                }
+                else {
+                    const filePath = file.path || path.join(process.cwd(), 'uploads', file.filename);
+                    if (fs.existsSync(filePath)) {
+                        const buf = fs.readFileSync(filePath);
+                        const mime = file.mimetype || 'image/png';
+                        photoPayload = `data:${mime};base64,${buf.toString('base64')}`;
+                    }
+                }
             }
             catch (err) {
-                console.error('Error writing persisted_avatar.txt:', err);
+                console.error('Error processing uploaded photo file:', err);
             }
-            updates.push('photo = ?');
-            values.push(photoUrl);
-            updates.push('profileImage = ?');
-            values.push(photoUrl);
-        }
-        else if (dto?.photo !== undefined) {
-            try {
-                const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
-                fs.writeFileSync(avatarFile, dto.photo, 'utf8');
+            if (!photoPayload && file.filename) {
+                photoPayload = `uploads/${file.filename}`;
             }
-            catch (err) { }
+        }
+        else if (dto?.photo !== undefined && dto.photo.trim() !== '') {
+            photoPayload = dto.photo.trim();
+        }
+        if (photoPayload) {
             updates.push('photo = ?');
-            values.push(dto.photo);
+            values.push(photoPayload);
             updates.push('profileImage = ?');
-            values.push(dto.photo);
+            values.push(photoPayload);
         }
-        if (updates.length === 0) {
-            return this.findOne(userId);
+        if (updates.length > 0) {
+            updates.push("updatedAt = datetime('now')");
+            values.push(userId);
+            db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
         }
-        updates.push("updatedAt = datetime('now')");
-        values.push(userId);
-        db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        const updatedUser = await this.findOne(userId, req);
         return {
             message: 'تم تحديث الملف الشخصي بنجاح',
-            user: await this.findOne(userId),
+            photo: updatedUser.photo,
+            user: updatedUser,
         };
     }
     async updateProfilePhoto(userId, file, req) {
         if (!file) {
             throw new common_1.BadRequestException('يرجى اختيار صورة ورفعها في حقل photo');
         }
-        const photoUrl = this.getPhotoDataUrl(file, req);
-        try {
-            const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
-            fs.writeFileSync(avatarFile, photoUrl, 'utf8');
-        }
-        catch (err) {
-            console.error('Error writing persisted_avatar.txt:', err);
-        }
-        const db = this.databaseService.db;
-        const user = db
-            .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
-            .get(userId);
-        if (!user) {
-            throw new common_1.NotFoundException(`المستخدم رقم #${userId} غير موجود`);
-        }
-        db.prepare("UPDATE users SET photo = ?, profileImage = ?, updatedAt = datetime('now') WHERE id = ?").run(photoUrl, photoUrl, userId);
-        const updatedUser = await this.findOne(userId);
-        return {
-            message: 'تم تحديث الصورة الشخصية بنجاح',
-            photo: photoUrl,
-            user: updatedUser,
-        };
+        return this.updateProfile(userId, {}, file, req);
     }
     async assignProject(userId, dto) {
         const db = this.databaseService.db;

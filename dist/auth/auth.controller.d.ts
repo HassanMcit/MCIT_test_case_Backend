@@ -7,7 +7,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
-    login(dto: LoginDto): Promise<{
+    login(dto: LoginDto, req: any, res?: any): Promise<{
         access_token: string;
         user: {
             id: number;
@@ -15,6 +15,7 @@ export declare class AuthController {
             email: string;
             role: string;
             photo: string;
+            profileImage: string;
         };
     }>;
     getMe(req: any): Promise<import("./auth.service").UserProfile>;
@@ -34,7 +35,7 @@ export declare class AuthController {
     resetPassword(dto: ResetPasswordDto): Promise<{
         message: string;
     }>;
-    logout(): {
+    logout(res?: any): {
         message: string;
     };
 }

@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -31,6 +32,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { Public } from '../auth/public.decorator';
 
 const multerPhotoOptions = {
   storage: diskStorage({
@@ -94,7 +96,7 @@ export class UsersController {
     if (req.user?.role !== 'admin') {
       throw new ForbiddenException('غير مصرح لك. عرض قائمة المستخدمين مخصص لمدير النظام (admin) فقط');
     }
-    return this.usersService.findAll();
+    return this.usersService.findAll(req);
   }
 
   /**
@@ -159,7 +161,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Current user profile with assigned projects' })
   getProfile(@Request() req: any) {
-    return this.usersService.findOne(req.user.id);
+    return this.usersService.findOne(req.user.id, req);
   }
 
   /**
@@ -333,6 +335,31 @@ export class UsersController {
   }
 
   /**
+   * GET /api/users/profile/photo
+   * Stream current authenticated user profile photo
+   */
+  @Get('profile/photo')
+  @ApiOperation({ summary: 'Get current authenticated user profile photo stream' })
+  @ApiResponse({ status: 200, description: 'User photo stream (PNG/JPEG)' })
+  getCurrentUserPhoto(@Request() req: any, @Res() res: any) {
+    return this.usersService.serveUserPhoto(req.user.id, res);
+  }
+
+  /**
+   * GET /api/users/:id/photo
+   * Public endpoint to serve user profile photo as binary image
+   */
+  @Public()
+  @Get(':id/photo')
+  @ApiOperation({ summary: 'Get user profile photo (Public)' })
+  @ApiParam({ name: 'id', type: Number, example: 1 })
+  @ApiResponse({ status: 200, description: 'User photo stream (PNG/JPEG)' })
+  @ApiResponse({ status: 404, description: 'Photo not found' })
+  getUserPhoto(@Param('id', ParseIntPipe) id: number, @Res() res: any) {
+    return this.usersService.serveUserPhoto(id, res);
+  }
+
+  /**
    * GET /api/users/:id
    * Get a single user with their test case count and assigned projects
    */
@@ -341,7 +368,7 @@ export class UsersController {
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'User found' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.usersService.findOne(id, req);
   }
 }

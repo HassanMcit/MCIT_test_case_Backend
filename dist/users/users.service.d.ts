@@ -5,15 +5,89 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 export declare class UsersService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
-    private getPhotoDataUrl;
-    create(dto: CreateUserDto): Promise<any>;
-    findAll(): Promise<any[]>;
-    findOne(id: number): Promise<any>;
-    updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any): Promise<any>;
+    serveUserPhoto(userId: number, res: any): Promise<any>;
+    create(dto: CreateUserDto, req?: any): Promise<{
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+        profileImage: string;
+        createdAt: any;
+        updatedAt: any;
+        _count: {
+            testCases: number;
+            assignedProjects: number;
+        };
+        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+    }>;
+    findAll(req?: any): Promise<{
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+        profileImage: string;
+        createdAt: any;
+        updatedAt: any;
+        _count: {
+            testCases: number;
+            assignedProjects: number;
+        };
+        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+    }[]>;
+    findOne(id: number, req?: any): Promise<{
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+        profileImage: string;
+        createdAt: any;
+        updatedAt: any;
+        _count: {
+            testCases: number;
+            assignedProjects: number;
+        };
+        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+    }>;
+    updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any): Promise<{
+        message: string;
+        photo: string;
+        user: {
+            id: any;
+            name: any;
+            email: any;
+            role: any;
+            photo: string;
+            profileImage: string;
+            createdAt: any;
+            updatedAt: any;
+            _count: {
+                testCases: number;
+                assignedProjects: number;
+            };
+            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        };
+    }>;
     updateProfilePhoto(userId: number, file: Express.Multer.File, req: any): Promise<{
         message: string;
         photo: string;
-        user: any;
+        user: {
+            id: any;
+            name: any;
+            email: any;
+            role: any;
+            photo: string;
+            profileImage: string;
+            createdAt: any;
+            updatedAt: any;
+            _count: {
+                testCases: number;
+                assignedProjects: number;
+            };
+            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        };
     }>;
     assignProject(userId: number, dto: AssignProjectDto): Promise<{
         message: string;

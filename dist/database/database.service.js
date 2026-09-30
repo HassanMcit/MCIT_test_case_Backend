@@ -38,6 +38,7 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var DatabaseService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DatabaseService = void 0;
 const common_1 = require("@nestjs/common");
@@ -45,7 +46,7 @@ const node_sqlite_1 = require("node:sqlite");
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("node:fs"));
 const bcrypt = __importStar(require("bcryptjs"));
-let DatabaseService = class DatabaseService {
+let DatabaseService = DatabaseService_1 = class DatabaseService {
     onModuleInit() {
         const dbPath = process.env.DATABASE_FILE || path.resolve(process.cwd(), 'qa_test_suite.db');
         fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -66,7 +67,9 @@ let DatabaseService = class DatabaseService {
         if (fs.existsSync(avatarFile)) {
             try {
                 const saved = fs.readFileSync(avatarFile, 'utf8').trim();
-                if (saved && saved.length > 10) {
+                if (saved &&
+                    saved.length > 10 &&
+                    !saved.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk')) {
                     return saved;
                 }
             }
@@ -74,7 +77,34 @@ let DatabaseService = class DatabaseService {
                 console.error('Error reading persisted_avatar.txt:', err);
             }
         }
-        return 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        return DatabaseService_1.DEFAULT_PHOTO_URL;
+    }
+    resolvePhotoUrl(user, req) {
+        if (!user)
+            return DatabaseService_1.DEFAULT_PHOTO_URL;
+        const rawPhoto = user.photo || user.profileImage;
+        if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.trim() === '') {
+            return DatabaseService_1.DEFAULT_PHOTO_URL;
+        }
+        if (rawPhoto.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk')) {
+            return DatabaseService_1.DEFAULT_PHOTO_URL;
+        }
+        if ((rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) &&
+            !rawPhoto.includes('localhost') &&
+            !rawPhoto.includes('127.0.0.1') &&
+            !rawPhoto.includes('mcit-test-case-backend.onrender.com')) {
+            return rawPhoto;
+        }
+        const host = req?.get ? req.get('host') : req?.headers?.host;
+        const isHttps = req?.secure ||
+            req?.headers?.['x-forwarded-proto'] === 'https' ||
+            (typeof host === 'string' && host.includes('onrender.com'));
+        const protocol = isHttps ? 'https' : (req?.protocol || 'http');
+        const baseUrl = process.env.BACKEND_URL ||
+            (host ? `${protocol}://${host}` : 'https://mcit-test-case-backend.onrender.com');
+        const v = user.updatedAt ? new Date(user.updatedAt).getTime() : '';
+        const vParam = v ? `?v=${v}` : '';
+        return `${baseUrl}/api/users/${user.id}/photo${vParam}`;
     }
     runMigrations() {
         const DEFAULT_PHOTO = this.getPersistedPhoto();
@@ -89,8 +119,12 @@ let DatabaseService = class DatabaseService {
             this.db.exec(`ALTER TABLE users ADD COLUMN photo TEXT DEFAULT '${DEFAULT_PHOTO}'`);
             console.log('✅ Migration: Added photo column to users table');
         }
-        this.db.prepare("UPDATE users SET photo = ? WHERE photo IS NULL OR photo = ''").run(DEFAULT_PHOTO);
-        this.db.prepare("UPDATE users SET profileImage = ? WHERE profileImage IS NULL OR profileImage = ''").run(DEFAULT_PHOTO);
+        this.db
+            .prepare("UPDATE users SET photo = ? WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'")
+            .run(DEFAULT_PHOTO);
+        this.db
+            .prepare("UPDATE users SET profileImage = ? WHERE profileImage IS NULL OR profileImage = '' OR profileImage LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'")
+            .run(DEFAULT_PHOTO);
     }
     initTables() {
         this.db.exec(`
@@ -177,7 +211,11 @@ let DatabaseService = class DatabaseService {
             console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with persistent photo.');
         }
         else {
-            const currentPhoto = (hassan.photo && hassan.photo.trim() !== '') ? hassan.photo : persistedPhoto;
+            const isDummy = hassan.photo &&
+                hassan.photo.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk');
+            const currentPhoto = !isDummy && hassan.photo && hassan.photo.trim() !== ''
+                ? hassan.photo
+                : persistedPhoto;
             this.db
                 .prepare("UPDATE users SET password = ?, photo = ?, profileImage = COALESCE(profileImage, ?) WHERE id = ?")
                 .run(defaultPassword, currentPhoto, currentPhoto, hassan.id);
@@ -186,7 +224,8 @@ let DatabaseService = class DatabaseService {
     }
 };
 exports.DatabaseService = DatabaseService;
-exports.DatabaseService = DatabaseService = __decorate([
+DatabaseService.DEFAULT_PHOTO_URL = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+exports.DatabaseService = DatabaseService = DatabaseService_1 = __decorate([
     (0, common_1.Injectable)()
 ], DatabaseService);
 //# sourceMappingURL=database.service.js.map

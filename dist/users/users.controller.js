@@ -56,6 +56,7 @@ const users_service_1 = require("./users.service");
 const create_user_dto_1 = require("./dto/create-user.dto");
 const assign_project_dto_1 = require("./dto/assign-project.dto");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
+const public_decorator_1 = require("../auth/public.decorator");
 const multerPhotoOptions = {
     storage: (0, multer_1.diskStorage)({
         destination: (req, file, cb) => {
@@ -92,7 +93,7 @@ let UsersController = class UsersController {
         if (req.user?.role !== 'admin') {
             throw new common_1.ForbiddenException('غير مصرح لك. عرض قائمة المستخدمين مخصص لمدير النظام (admin) فقط');
         }
-        return this.usersService.findAll();
+        return this.usersService.findAll(req);
     }
     getMyAssignedProjects(req) {
         return this.usersService.getMyAssignedProjects(req.user.id);
@@ -110,7 +111,7 @@ let UsersController = class UsersController {
         return this.usersService.unassignProject(userId, projectId);
     }
     getProfile(req) {
-        return this.usersService.findOne(req.user.id);
+        return this.usersService.findOne(req.user.id, req);
     }
     updateProfile(req, dto, file) {
         return this.usersService.updateProfile(req.user.id, dto, file, req);
@@ -127,8 +128,14 @@ let UsersController = class UsersController {
     uploadProfilePhotoPut(req, file) {
         return this.usersService.updateProfilePhoto(req.user.id, file, req);
     }
-    findOne(id) {
-        return this.usersService.findOne(id);
+    getCurrentUserPhoto(req, res) {
+        return this.usersService.serveUserPhoto(req.user.id, res);
+    }
+    getUserPhoto(id, res) {
+        return this.usersService.serveUserPhoto(id, res);
+    }
+    findOne(id, req) {
+        return this.usersService.findOne(id, req);
     }
 };
 exports.UsersController = UsersController;
@@ -352,14 +359,38 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "uploadProfilePhotoPut", null);
 __decorate([
+    (0, common_1.Get)('profile/photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current authenticated user profile photo stream' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User photo stream (PNG/JPEG)' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getCurrentUserPhoto", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)(':id/photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get user profile photo (Public)' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User photo stream (PNG/JPEG)' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Photo not found' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getUserPhoto", null);
+__decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get a single user by ID' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User found' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "findOne", null);
 exports.UsersController = UsersController = __decorate([

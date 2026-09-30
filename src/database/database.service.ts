@@ -28,19 +28,70 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  public static readonly DEFAULT_PHOTO_URL =
+    'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+
   public getPersistedPhoto(): string {
     const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
     if (fs.existsSync(avatarFile)) {
       try {
         const saved = fs.readFileSync(avatarFile, 'utf8').trim();
-        if (saved && saved.length > 10) {
+        // Ignore dummy 1x1 test pixels
+        if (
+          saved &&
+          saved.length > 10 &&
+          !saved.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk')
+        ) {
           return saved;
         }
       } catch (err) {
         console.error('Error reading persisted_avatar.txt:', err);
       }
     }
-    return 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+    return DatabaseService.DEFAULT_PHOTO_URL;
+  }
+
+  public resolvePhotoUrl(
+    user: { id: number; photo?: string; profileImage?: string; updatedAt?: string } | undefined,
+    req?: any,
+  ): string {
+    if (!user) return DatabaseService.DEFAULT_PHOTO_URL;
+
+    const rawPhoto = user.photo || user.profileImage;
+    if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.trim() === '') {
+      return DatabaseService.DEFAULT_PHOTO_URL;
+    }
+
+    // Ignore dummy 1x1 base64 string
+    if (rawPhoto.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk')) {
+      return DatabaseService.DEFAULT_PHOTO_URL;
+    }
+
+    // If it's already an external R2 / 3rd party URL
+    if (
+      (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) &&
+      !rawPhoto.includes('localhost') &&
+      !rawPhoto.includes('127.0.0.1') &&
+      !rawPhoto.includes('mcit-test-case-backend.onrender.com')
+    ) {
+      return rawPhoto;
+    }
+
+    // Determine host & protocol
+    const host = req?.get ? req.get('host') : req?.headers?.host;
+    const isHttps =
+      req?.secure ||
+      req?.headers?.['x-forwarded-proto'] === 'https' ||
+      (typeof host === 'string' && host.includes('onrender.com'));
+    const protocol = isHttps ? 'https' : (req?.protocol || 'http');
+    const baseUrl =
+      process.env.BACKEND_URL ||
+      (host ? `${protocol}://${host}` : 'https://mcit-test-case-backend.onrender.com');
+
+    const v = user.updatedAt ? new Date(user.updatedAt).getTime() : '';
+    const vParam = v ? `?v=${v}` : '';
+
+    return `${baseUrl}/api/users/${user.id}/photo${vParam}`;
   }
 
   private runMigrations() {
@@ -61,9 +112,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       console.log('✅ Migration: Added photo column to users table');
     }
 
-    // Update any existing users without a photo to the default/persisted image
-    this.db.prepare("UPDATE users SET photo = ? WHERE photo IS NULL OR photo = ''").run(DEFAULT_PHOTO);
-    this.db.prepare("UPDATE users SET profileImage = ? WHERE profileImage IS NULL OR profileImage = ''").run(DEFAULT_PHOTO);
+    // Update any existing users with null, empty, or dummy 1x1 photo to the default image
+    this.db
+      .prepare(
+        "UPDATE users SET photo = ? WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'",
+      )
+      .run(DEFAULT_PHOTO);
+    this.db
+      .prepare(
+        "UPDATE users SET profileImage = ? WHERE profileImage IS NULL OR profileImage = '' OR profileImage LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'",
+      )
+      .run(DEFAULT_PHOTO);
   }
 
   private initTables() {
@@ -156,7 +215,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with persistent photo.');
     } else {
       // PRESERVE the existing custom photo if set, otherwise use persisted/default
-      const currentPhoto = (hassan.photo && hassan.photo.trim() !== '') ? hassan.photo : persistedPhoto;
+      const isDummy =
+        hassan.photo &&
+        hassan.photo.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk');
+      const currentPhoto =
+        !isDummy && hassan.photo && hassan.photo.trim() !== ''
+          ? hassan.photo
+          : persistedPhoto;
       this.db
         .prepare("UPDATE users SET password = ?, photo = ?, profileImage = COALESCE(profileImage, ?) WHERE id = ?")
         .run(defaultPassword, currentPhoto, currentPhoto, hassan.id);

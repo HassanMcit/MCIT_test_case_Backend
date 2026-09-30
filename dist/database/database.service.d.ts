@@ -4,6 +4,7 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     db: DatabaseSync;
     onModuleInit(): void;
     onModuleDestroy(): void;
+    getPersistedPhoto(): string;
     private runMigrations;
     private initTables;
     private seedInitialData;

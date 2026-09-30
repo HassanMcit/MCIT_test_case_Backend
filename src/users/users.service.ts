@@ -5,6 +5,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import * as fs from 'fs';
+import * as path from 'path';
 import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
@@ -13,6 +15,29 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 @Injectable()
 export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  private getPhotoDataUrl(file: Express.Multer.File, req: any): string {
+    try {
+      if (file.buffer) {
+        const mime = file.mimetype || 'image/png';
+        return `data:${mime};base64,${file.buffer.toString('base64')}`;
+      }
+      const filePath = file.path || (file.filename ? path.join(process.cwd(), 'uploads', file.filename) : null);
+      if (filePath && fs.existsSync(filePath)) {
+        const buf = fs.readFileSync(filePath);
+        const mime = file.mimetype || 'image/png';
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    } catch (err) {
+      console.error('Error generating base64 for uploaded photo:', err);
+    }
+
+    const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
+    const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
+    const protocol = isHttps ? 'https' : (req?.protocol || 'http');
+    const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
+    return `${baseUrl}/uploads/${file.filename}`;
+  }
 
   // ── POST /api/users (Admin Only) ─────────────────────────────────
   async create(dto: CreateUserDto) {
@@ -28,13 +53,13 @@ export class UsersService {
     const hashedPassword = bcrypt.hashSync(dto.password, 10);
     const userRole = dto.role || 'user';
 
-    const defaultPhoto = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+    const defaultPhoto = this.databaseService.getPersistedPhoto();
     const result = db
       .prepare(`
-        INSERT INTO users (name, email, password, role, photo)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (name, email, password, role, photo, profileImage)
+        VALUES (?, ?, ?, ?, ?, ?)
       `)
-      .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto);
+      .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto, defaultPhoto);
 
     const newId = Number(result.lastInsertRowid);
     return this.findOne(newId);
@@ -59,11 +84,11 @@ export class UsersService {
       'SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?',
     );
 
-    const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+    const defaultPhoto = this.databaseService.getPersistedPhoto();
     return users.map((u) => {
       const assignedProjects = stmtProjects.all(u.id);
       const testCasesCount = (stmtCounts.get(u.id) as { count: number }).count;
-      const userPhoto = u.photo || DEFAULT_PHOTO;
+      const userPhoto = (u.photo && u.photo.trim() !== '') ? u.photo : defaultPhoto;
       return {
         ...u,
         photo: userPhoto,
@@ -103,8 +128,8 @@ export class UsersService {
       `)
       .all(id);
 
-    const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-    const userPhoto = user.photo || DEFAULT_PHOTO;
+    const defaultPhoto = this.databaseService.getPersistedPhoto();
+    const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
     return {
       ...user,
       photo: userPhoto,
@@ -137,16 +162,24 @@ export class UsersService {
     }
 
     if (file && req) {
-      const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
-      const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
-      const protocol = isHttps ? 'https' : (req?.protocol || 'http');
-      const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
-      const photoUrl = `${baseUrl}/uploads/${file.filename}`;
+      const photoUrl = this.getPhotoDataUrl(file, req);
+
+      try {
+        const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+        fs.writeFileSync(avatarFile, photoUrl, 'utf8');
+      } catch (err) {
+        console.error('Error writing persisted_avatar.txt:', err);
+      }
+
       updates.push('photo = ?');
       values.push(photoUrl);
       updates.push('profileImage = ?');
       values.push(photoUrl);
     } else if (dto?.photo !== undefined) {
+      try {
+        const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+        fs.writeFileSync(avatarFile, dto.photo, 'utf8');
+      } catch (err) {}
       updates.push('photo = ?');
       values.push(dto.photo);
       updates.push('profileImage = ?');
@@ -174,11 +207,14 @@ export class UsersService {
       throw new BadRequestException('يرجى اختيار صورة ورفعها في حقل photo');
     }
 
-    const host = req?.get ? req.get('host') : req?.headers?.host || 'localhost:3001';
-    const isHttps = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || (typeof host === 'string' && host.includes('onrender.com'));
-    const protocol = isHttps ? 'https' : (req?.protocol || 'http');
-    const baseUrl = process.env.BACKEND_URL || `${protocol}://${host}`;
-    const photoUrl = `${baseUrl}/uploads/${file.filename}`;
+    const photoUrl = this.getPhotoDataUrl(file, req);
+
+    try {
+      const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+      fs.writeFileSync(avatarFile, photoUrl, 'utf8');
+    } catch (err) {
+      console.error('Error writing persisted_avatar.txt:', err);
+    }
 
     const db = this.databaseService.db;
     const user = db

@@ -65,8 +65,8 @@ let AuthService = class AuthService {
         }
         const payload = { sub: user.id, email: user.email, role: user.role };
         const token = this.jwtService.sign(payload, { expiresIn: '7d' });
-        const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-        const userPhoto = user.photo || DEFAULT_PHOTO;
+        const defaultPhoto = this.databaseService.getPersistedPhoto();
+        const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
         return {
             access_token: token,
             user: {
@@ -85,8 +85,8 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
-        const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
-        const userPhoto = user.photo || DEFAULT_PHOTO;
+        const defaultPhoto = this.databaseService.getPersistedPhoto();
+        const userPhoto = (user.photo && user.photo.trim() !== '') ? user.photo : defaultPhoto;
         return {
             ...user,
             photo: userPhoto,

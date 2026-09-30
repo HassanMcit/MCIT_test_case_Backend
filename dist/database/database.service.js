@@ -61,8 +61,23 @@ let DatabaseService = class DatabaseService {
             this.db.close();
         }
     }
+    getPersistedPhoto() {
+        const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+        if (fs.existsSync(avatarFile)) {
+            try {
+                const saved = fs.readFileSync(avatarFile, 'utf8').trim();
+                if (saved && saved.length > 10) {
+                    return saved;
+                }
+            }
+            catch (err) {
+                console.error('Error reading persisted_avatar.txt:', err);
+            }
+        }
+        return 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+    }
     runMigrations() {
-        const DEFAULT_PHOTO = 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png';
+        const DEFAULT_PHOTO = this.getPersistedPhoto();
         const columns = this.db.prepare("PRAGMA table_info(users)").all();
         const hasProfileImage = columns.some((c) => c.name === 'profileImage');
         if (!hasProfileImage) {
@@ -140,8 +155,9 @@ let DatabaseService = class DatabaseService {
     }
     seedInitialData() {
         const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);
+        const persistedPhoto = this.getPersistedPhoto();
         const hassan = this.db
-            .prepare('SELECT id FROM users WHERE email = ?')
+            .prepare('SELECT id, photo, profileImage FROM users WHERE email = ?')
             .get('h.ali@mcit.gov.eg');
         if (!hassan || hassan.id !== 1) {
             this.db.exec('PRAGMA foreign_keys = OFF;');
@@ -154,17 +170,18 @@ let DatabaseService = class DatabaseService {
             catch { }
             this.db.exec('PRAGMA foreign_keys = ON;');
             const insertUser = this.db.prepare(`
-        INSERT INTO users (id, name, email, password, role, photo)
-        VALUES (1, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, name, email, password, role, photo, profileImage)
+        VALUES (1, ?, ?, ?, ?, ?, ?)
       `);
-            insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png');
-            console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with new password.');
+            insertUser.run('Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', persistedPhoto, persistedPhoto);
+            console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with persistent photo.');
         }
         else {
+            const currentPhoto = (hassan.photo && hassan.photo.trim() !== '') ? hassan.photo : persistedPhoto;
             this.db
-                .prepare("UPDATE users SET password = ?, photo = COALESCE(photo, 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png') WHERE id = ?")
-                .run(defaultPassword, hassan.id);
-            console.log('✅ Password updated for Hassan Ali (id: 1).');
+                .prepare("UPDATE users SET password = ?, photo = ?, profileImage = COALESCE(profileImage, ?) WHERE id = ?")
+                .run(defaultPassword, currentPhoto, currentPhoto, hassan.id);
+            console.log('✅ Password updated for Hassan Ali (id: 1) - photo preserved.');
         }
     }
 };

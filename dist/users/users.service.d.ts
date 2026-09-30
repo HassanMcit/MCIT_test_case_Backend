@@ -5,6 +5,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 export declare class UsersService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
+    private getPhotoDataUrl;
     create(dto: CreateUserDto): Promise<any>;
     findAll(): Promise<any[]>;
     findOne(id: number): Promise<any>;

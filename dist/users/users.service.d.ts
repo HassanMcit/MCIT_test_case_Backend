@@ -8,6 +8,7 @@ export declare class UsersService {
     serveUserPhoto(userId: number, res: any): Promise<any>;
     create(dto: CreateUserDto, req?: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -19,10 +20,11 @@ export declare class UsersService {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
     }>;
     findAll(req?: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -34,10 +36,11 @@ export declare class UsersService {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
     }[]>;
     findOne(id: number, req?: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -49,13 +52,35 @@ export declare class UsersService {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
+    }>;
+    updateUserByAdmin(userId: number, dto: any, req?: any): Promise<{
+        id: any;
+        userId: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+        profileImage: string;
+        createdAt: any;
+        updatedAt: any;
+        _count: {
+            testCases: number;
+            assignedProjects: number;
+        };
+        assignedProjects: any[];
+    }>;
+    remove(userId: number): Promise<{
+        message: string;
+        userId: number;
     }>;
     updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -67,14 +92,16 @@ export declare class UsersService {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     updateProfilePhoto(userId: number, file: Express.Multer.File, req: any): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -86,11 +113,12 @@ export declare class UsersService {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     assignProject(userId: number, dto: AssignProjectDto): Promise<{
         message: string;
+        userId: any;
         assignment: {
             userId: any;
             userName: any;
@@ -101,6 +129,8 @@ export declare class UsersService {
     }>;
     unassignProject(userId: number, projectId: number): Promise<{
         message: string;
+        userId: number;
+        projectId: number;
     }>;
     getMyAssignedProjects(userId: number): Promise<any[]>;
 }

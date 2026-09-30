@@ -64,13 +64,15 @@ let AuthService = class AuthService {
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }
-        const payload = { sub: user.id, email: user.email, role: user.role };
+        const payload = { sub: user.id, id: user.id, userId: user.id, email: user.email, role: user.role };
         const token = this.jwtService.sign(payload, { expiresIn: '7d' });
         const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
             access_token: token,
+            userId: user.id,
             user: {
                 id: user.id,
+                userId: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
@@ -89,6 +91,7 @@ let AuthService = class AuthService {
         const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
             id: user.id,
+            userId: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
@@ -120,6 +123,7 @@ let AuthService = class AuthService {
             .run(hashedPassword, userId);
         return {
             message: 'تم تغيير كلمة المرور بنجاح',
+            userId: userId,
         };
     }
     async forgotPassword(dto) {
@@ -143,6 +147,7 @@ let AuthService = class AuthService {
         console.log(`🔑 [Password Reset OTP] User: ${user.name} (${user.email}), Role: ${user.role}, Code: ${code}`);
         return {
             message: `تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ ${user.name}`,
+            userId: user.id,
             email: user.email,
             code: code,
             expiresIn: '15 دقيقة',
@@ -203,6 +208,7 @@ let AuthService = class AuthService {
             .run(record.id);
         return {
             message: 'تم تعيين كلمة المرور الجديدة بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة',
+            userId: user.id,
         };
     }
 };

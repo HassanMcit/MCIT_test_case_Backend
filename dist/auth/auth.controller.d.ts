@@ -9,8 +9,10 @@ export declare class AuthController {
     constructor(authService: AuthService);
     login(dto: LoginDto, req: any, res?: any): Promise<{
         access_token: string;
+        userId: number;
         user: {
             id: number;
+            userId: number;
             name: string;
             email: string;
             role: string;
@@ -21,9 +23,11 @@ export declare class AuthController {
     getMe(req: any): Promise<import("./auth.service").UserProfile>;
     changePassword(req: any, dto: ChangePasswordDto): Promise<{
         message: string;
+        userId: number;
     }>;
     forgotPassword(dto: ForgotPasswordDto): Promise<{
         message: string;
+        userId: number;
         email: string;
         code: string;
         expiresIn: string;
@@ -34,6 +38,7 @@ export declare class AuthController {
     }>;
     resetPassword(dto: ResetPasswordDto): Promise<{
         message: string;
+        userId: number;
     }>;
     logout(res?: any): {
         message: string;

@@ -144,6 +144,12 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateTestCaseDto.prototype, "testerId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 1, description: 'User ID of the tester (مترادف لـ testerId)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)({ message: 'معرّف المستخدم (userId) يجب أن يكون رقماً صحيحاً' }),
+    __metadata("design:type", Number)
+], CreateTestCaseDto.prototype, "userId", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 1, description: 'ID of the project this test case belongs to' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)({ message: 'معرّف المشروع يجب أن يكون رقماً صحيحاً' }),

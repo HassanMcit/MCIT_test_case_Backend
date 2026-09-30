@@ -101,22 +101,48 @@ let UsersService = class UsersService {
     }
     async create(dto, req) {
         const db = this.databaseService.db;
-        const existing = db
-            .prepare('SELECT id FROM users WHERE email = ?')
-            .get(dto.email);
-        if (existing) {
+        const existingEmail = db
+            .prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)')
+            .get(dto.email.trim());
+        if (existingEmail) {
             throw new common_1.ConflictException('البريد الإلكتروني مسجل بالفعل لمستخدم آخر');
         }
+        const rawId = dto.id ?? dto.empId;
+        let targetId = null;
+        if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
+            if (typeof rawId === 'number') {
+                targetId = Math.floor(rawId);
+            }
+            else {
+                const cleanDigits = String(rawId).replace(/\D/g, '');
+                targetId = cleanDigits ? parseInt(cleanDigits, 10) : NaN;
+            }
+            if (isNaN(targetId) || targetId <= 0) {
+                throw new common_1.BadRequestException('الرقم الوظيفي (id) يجب أن يكون رقماً صحيحاً موجباً');
+            }
+            const existingId = db.prepare('SELECT id, name FROM users WHERE id = ?').get(targetId);
+            if (existingId) {
+                throw new common_1.ConflictException(`الرقم الوظيفي #${targetId} مسجل بالفعل للمستخدم (${existingId.name})`);
+            }
+        }
         const hashedPassword = bcrypt.hashSync(dto.password, 10);
-        const userRole = dto.role || 'user';
+        const userRole = dto.role || 'tester';
         const defaultPhoto = this.databaseService.getPersistedPhoto();
-        const result = db
-            .prepare(`
+        let newId;
+        if (targetId !== null) {
+            db.prepare(`
+        INSERT INTO users (id, name, email, password, role, photo, profileImage)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(targetId, dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto);
+            newId = targetId;
+        }
+        else {
+            const result = db.prepare(`
         INSERT INTO users (name, email, password, role, photo, profileImage)
         VALUES (?, ?, ?, ?, ?, ?)
-      `)
-            .run(dto.name, dto.email, hashedPassword, userRole, defaultPhoto, defaultPhoto);
-        const newId = Number(result.lastInsertRowid);
+      `).run(dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto);
+            newId = Number(result.lastInsertRowid);
+        }
         return this.findOne(newId, req);
     }
     async findAll(req) {
@@ -133,11 +159,15 @@ let UsersService = class UsersService {
     `);
         const stmtCounts = db.prepare('SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?');
         return users.map((u) => {
-            const assignedProjects = stmtProjects.all(u.id);
+            const assignedProjects = stmtProjects.all(u.id).map((p) => ({
+                ...p,
+                userId: u.id,
+            }));
             const testCasesCount = stmtCounts.get(u.id).count;
             const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
             return {
                 id: u.id,
+                userId: u.id,
                 name: u.name,
                 email: u.email,
                 role: u.role,
@@ -166,16 +196,20 @@ let UsersService = class UsersService {
             .get(id).count;
         const assignedProjects = db
             .prepare(`
-        SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
-        FROM projects p
-        INNER JOIN project_assignments pa ON p.id = pa.projectId
-        WHERE pa.userId = ?
-        ORDER BY pa.assignedAt DESC
-      `)
-            .all(id);
+          SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
+          FROM projects p
+          INNER JOIN project_assignments pa ON p.id = pa.projectId
+          WHERE pa.userId = ?
+          ORDER BY pa.assignedAt DESC
+        `)
+            .all(id).map((p) => ({
+            ...p,
+            userId: user.id,
+        }));
         const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
         return {
             id: user.id,
+            userId: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
@@ -188,6 +222,44 @@ let UsersService = class UsersService {
                 assignedProjects: assignedProjects.length,
             },
             assignedProjects,
+        };
+    }
+    async updateUserByAdmin(userId, dto, req) {
+        const db = this.databaseService.db;
+        const user = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            throw new common_1.NotFoundException(`المستخدم رقم #${userId} غير موجود`);
+        }
+        const updates = [];
+        const values = [];
+        if (dto.name && dto.name.trim() !== '') {
+            updates.push('name = ?');
+            values.push(dto.name.trim());
+        }
+        if (dto.role && ['admin', 'tester', 'user'].includes(dto.role)) {
+            updates.push('role = ?');
+            values.push(dto.role);
+        }
+        if (updates.length > 0) {
+            updates.push("updatedAt = datetime('now')");
+            values.push(userId);
+            db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        }
+        return this.findOne(userId, req);
+    }
+    async remove(userId) {
+        const db = this.databaseService.db;
+        const user = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            throw new common_1.NotFoundException(`المستخدم رقم #${userId} غير موجود`);
+        }
+        if (user.id === 1 || (user.role === 'admin' && user.email === 'h.ali@mcit.gov.eg')) {
+            throw new common_1.BadRequestException('لا يمكن حذف حساب مدير النظام الرئيسي');
+        }
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        return {
+            message: `تم حذف المستخدم #${userId} (${user.name}) بنجاح`,
+            userId: userId,
         };
     }
     async updateProfile(userId, dto, file, req) {
@@ -251,6 +323,7 @@ let UsersService = class UsersService {
         const updatedUser = await this.findOne(userId, req);
         return {
             message: 'تم تحديث الملف الشخصي بنجاح',
+            userId: updatedUser.id,
             photo: updatedUser.photo,
             user: updatedUser,
         };
@@ -283,6 +356,7 @@ let UsersService = class UsersService {
     `).run(userId, dto.projectId);
         return {
             message: `تم إسناد مشروع "${project.name}" للمستخدم "${user.name}" بنجاح للبدء في اختباره`,
+            userId: user.id,
             assignment: {
                 userId: user.id,
                 userName: user.name,
@@ -303,6 +377,8 @@ let UsersService = class UsersService {
         db.prepare('DELETE FROM project_assignments WHERE userId = ? AND projectId = ?').run(userId, projectId);
         return {
             message: `تم إلغاء إسناد المشروع #${projectId} من المستخدم #${userId} بنجاح`,
+            userId: userId,
+            projectId: projectId,
         };
     }
     async getMyAssignedProjects(userId) {
@@ -333,6 +409,7 @@ let UsersService = class UsersService {
             const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
             return {
                 ...p,
+                userId: userId,
                 stats: { total, passed, failed, pending, successRate },
             };
         });

@@ -15,6 +15,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 export interface UserProfile {
   id: number;
+  userId?: number;
   name: string;
   email: string;
   role: string;
@@ -51,14 +52,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, id: user.id, userId: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
     return {
       access_token: token,
+      userId: user.id,
       user: {
         id: user.id,
+        userId: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -80,6 +83,7 @@ export class AuthService {
     const photoUrl = this.databaseService.resolvePhotoUrl(user, req);
     return {
       id: user.id,
+      userId: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -119,6 +123,7 @@ export class AuthService {
 
     return {
       message: 'تم تغيير كلمة المرور بنجاح',
+      userId: userId,
     };
   }
 
@@ -152,6 +157,7 @@ export class AuthService {
 
     return {
       message: `تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ ${user.name}`,
+      userId: user.id,
       email: user.email,
       code: code,
       expiresIn: '15 دقيقة',
@@ -230,6 +236,7 @@ export class AuthService {
 
     return {
       message: 'تم تعيين كلمة المرور الجديدة بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة',
+      userId: user.id,
     };
   }
 }

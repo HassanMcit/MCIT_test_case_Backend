@@ -34,6 +34,7 @@ let TestCasesService = class TestCasesService {
         }
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
+        const targetTesterId = dto.testerId ?? dto.userId ?? null;
         const stmt = db.prepare(`
       INSERT INTO test_cases (
         testId, module, pageName, scenario, preConditions, steps,
@@ -41,7 +42,7 @@ let TestCasesService = class TestCasesService {
         executedAt, testerId, projectId
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        const result = stmt.run(testId, dto.module, dto.pageName || null, dto.scenario, dto.preConditions || null, stepsStr, dto.expectedResult, dto.actualResult || null, dto.priority || 'medium', dto.status || 'pending', dto.notes || null, executedAt, dto.testerId || null, dto.projectId || null);
+        const result = stmt.run(testId, dto.module, dto.pageName || null, dto.scenario, dto.preConditions || null, stepsStr, dto.expectedResult, dto.actualResult || null, dto.priority || 'medium', dto.status || 'pending', dto.notes || null, executedAt, targetTesterId, dto.projectId || null);
         const newId = Number(result.lastInsertRowid);
         return this.findOne(newId);
     }
@@ -102,7 +103,9 @@ let TestCasesService = class TestCasesService {
             return {
                 ...base,
                 steps,
-                tester: tester_id ? { id: tester_id, name: tester_name, email: tester_email } : null,
+                testerId: tester_id || null,
+                userId: tester_id || null,
+                tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
                 project: project_id ? { id: project_id, name: project_name } : null,
             };
         });
@@ -143,7 +146,9 @@ let TestCasesService = class TestCasesService {
         return {
             ...base,
             steps,
-            tester: tester_id ? { id: tester_id, name: tester_name, email: tester_email } : null,
+            testerId: tester_id || null,
+            userId: tester_id || null,
+            tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
             project: project_id ? { id: project_id, name: project_name } : null,
         };
     }
@@ -152,10 +157,15 @@ let TestCasesService = class TestCasesService {
         await this.findOne(id);
         const fields = [];
         const values = [];
+        const effectiveTesterId = dto.testerId ?? dto.userId;
+        if (effectiveTesterId !== undefined) {
+            fields.push('testerId = ?');
+            values.push(effectiveTesterId);
+        }
         const allowed = [
             'module', 'pageName', 'scenario', 'preConditions',
             'expectedResult', 'actualResult', 'priority', 'status',
-            'notes', 'executedAt', 'testerId', 'projectId'
+            'notes', 'executedAt', 'projectId'
         ];
         for (const key of allowed) {
             if (dto[key] !== undefined) {

@@ -16,6 +16,22 @@ class CreateUserDto {
 }
 exports.CreateUserDto = CreateUserDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 4019,
+        description: 'الرقم الوظيفي للمستخدم (User ID / Employee ID)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateUserDto.prototype, "id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 4019,
+        description: 'الرقم الوظيفي للمستخدم (مترادف لـ id)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateUserDto.prototype, "empId", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({
         example: 'محمود أحمد النجار',
         description: 'Full name of the user',
@@ -49,15 +65,15 @@ __decorate([
 ], CreateUserDto.prototype, "password", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        example: 'user',
-        description: 'User role: admin | user (optional, defaults to user)',
-        enum: ['admin', 'user'],
-        default: 'user',
+        example: 'tester',
+        description: 'User role: admin | tester | user (optional, defaults to tester)',
+        enum: ['admin', 'tester', 'user'],
+        default: 'tester',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^(admin|user)$/, {
-        message: 'الدور (role) يجب أن يكون إما admin أو user فقط',
+    (0, class_validator_1.Matches)(/^(admin|tester|user)$/, {
+        message: 'الدور (role) يجب أن يكون إما admin أو tester أو user',
     }),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "role", void 0);

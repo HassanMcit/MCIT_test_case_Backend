@@ -2,6 +2,20 @@ import { IsString, Matches, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
+  @ApiPropertyOptional({
+    example: 4019,
+    description: 'الرقم الوظيفي للمستخدم (User ID / Employee ID)',
+  })
+  @IsOptional()
+  id?: number | string;
+
+  @ApiPropertyOptional({
+    example: 4019,
+    description: 'الرقم الوظيفي للمستخدم (مترادف لـ id)',
+  })
+  @IsOptional()
+  empId?: number | string;
+
   @ApiProperty({
     example: 'محمود أحمد النجار',
     description: 'Full name of the user',
@@ -41,17 +55,17 @@ export class CreateUserDto {
   password: string;
 
   @ApiPropertyOptional({
-    example: 'user',
-    description: 'User role: admin | user (optional, defaults to user)',
-    enum: ['admin', 'user'],
-    default: 'user',
+    example: 'tester',
+    description: 'User role: admin | tester | user (optional, defaults to tester)',
+    enum: ['admin', 'tester', 'user'],
+    default: 'tester',
   })
   @IsOptional()
   @IsString()
   @Matches(
-    /^(admin|user)$/,
+    /^(admin|tester|user)$/,
     {
-      message: 'الدور (role) يجب أن يكون إما admin أو user فقط',
+      message: 'الدور (role) يجب أن يكون إما admin أو tester أو user',
     },
   )
   role?: string;

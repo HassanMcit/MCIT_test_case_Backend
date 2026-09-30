@@ -44,6 +44,7 @@ export class TestCasesService {
 
     const stepsStr = JSON.stringify(dto.steps || []);
     const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
+    const targetTesterId = dto.testerId ?? dto.userId ?? null;
 
     const stmt = db.prepare(`
       INSERT INTO test_cases (
@@ -66,7 +67,7 @@ export class TestCasesService {
       dto.status || 'pending',
       dto.notes || null,
       executedAt,
-      dto.testerId || null,
+      targetTesterId,
       dto.projectId || null,
     );
 
@@ -144,7 +145,9 @@ export class TestCasesService {
       return {
         ...base,
         steps,
-        tester: tester_id ? { id: tester_id, name: tester_name, email: tester_email } : null,
+        testerId: tester_id || null,
+        userId: tester_id || null,
+        tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
         project: project_id ? { id: project_id, name: project_name } : null,
       };
     });
@@ -195,7 +198,9 @@ export class TestCasesService {
     return {
       ...base,
       steps,
-      tester: tester_id ? { id: tester_id, name: tester_name, email: tester_email } : null,
+      testerId: tester_id || null,
+      userId: tester_id || null,
+      tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
       project: project_id ? { id: project_id, name: project_name } : null,
     };
   }
@@ -208,10 +213,16 @@ export class TestCasesService {
     const fields: string[] = [];
     const values: any[] = [];
 
+    const effectiveTesterId = dto.testerId ?? dto.userId;
+    if (effectiveTesterId !== undefined) {
+      fields.push('testerId = ?');
+      values.push(effectiveTesterId);
+    }
+
     const allowed = [
       'module', 'pageName', 'scenario', 'preConditions',
       'expectedResult', 'actualResult', 'priority', 'status',
-      'notes', 'executedAt', 'testerId', 'projectId'
+      'notes', 'executedAt', 'projectId'
     ];
 
     for (const key of allowed) {

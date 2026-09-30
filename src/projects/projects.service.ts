@@ -59,6 +59,14 @@ export class ProjectsService {
       WHERE projectId = ?
     `);
 
+    const stmtAssignedUsers = db.prepare(`
+      SELECT u.id, u.id as userId, u.name, u.email, u.role, u.photo, u.profileImage, pa.assignedAt
+      FROM users u
+      INNER JOIN project_assignments pa ON u.id = pa.userId
+      WHERE pa.projectId = ?
+      ORDER BY pa.assignedAt DESC
+    `);
+
     return projects.map((p) => {
       const statsRow = stmtStats.get(p.id) as {
         total: number;
@@ -72,10 +80,12 @@ export class ProjectsService {
       const failed = statsRow.failed || 0;
       const pending = statsRow.pending || 0;
       const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+      const assignedUsers = stmtAssignedUsers.all(p.id) as any[];
 
       return {
         ...p,
         stats: { total, passed, failed, pending, successRate },
+        assignedUsers,
       };
     });
   }
@@ -88,6 +98,14 @@ export class ProjectsService {
     if (!project) {
       throw new NotFoundException(`Project #${id} not found`);
     }
+
+    const assignedUsers = db.prepare(`
+      SELECT u.id, u.id as userId, u.name, u.email, u.role, u.photo, u.profileImage, pa.assignedAt
+      FROM users u
+      INNER JOIN project_assignments pa ON u.id = pa.userId
+      WHERE pa.projectId = ?
+      ORDER BY pa.assignedAt DESC
+    `).all(id) as any[];
 
     const recentTestCases = db.prepare(`
       SELECT
@@ -107,7 +125,9 @@ export class ProjectsService {
       return {
         ...base,
         steps,
-        tester: tester_id ? { id: tester_id, name: tester_name } : null,
+        testerId: tester_id || null,
+        userId: tester_id || null,
+        tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name } : null,
       };
     });
 
@@ -130,6 +150,7 @@ export class ProjectsService {
     return {
       ...project,
       stats: { total, passed, failed, pending, successRate },
+      assignedUsers,
       recentTestCases: formattedTCs,
     };
   }

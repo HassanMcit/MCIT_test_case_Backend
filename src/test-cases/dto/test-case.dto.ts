@@ -139,6 +139,11 @@ export class CreateTestCaseDto {
   @IsInt({ message: 'معرّف الفاحص يجب أن يكون رقماً صحيحاً' })
   testerId?: number;
 
+  @ApiPropertyOptional({ example: 1, description: 'User ID of the tester (مترادف لـ testerId)' })
+  @IsOptional()
+  @IsInt({ message: 'معرّف المستخدم (userId) يجب أن يكون رقماً صحيحاً' })
+  userId?: number;
+
   @ApiPropertyOptional({ example: 1, description: 'ID of the project this test case belongs to' })
   @IsOptional()
   @IsInt({ message: 'معرّف المشروع يجب أن يكون رقماً صحيحاً' })

@@ -7,6 +7,7 @@ import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 export interface UserProfile {
     id: number;
+    userId?: number;
     name: string;
     email: string;
     role: string;
@@ -20,8 +21,10 @@ export declare class AuthService {
     constructor(databaseService: DatabaseService, jwtService: JwtService);
     login(dto: LoginDto, req?: any): Promise<{
         access_token: string;
+        userId: number;
         user: {
             id: number;
+            userId: number;
             name: string;
             email: string;
             role: string;
@@ -32,9 +35,11 @@ export declare class AuthService {
     getMe(userId: number, req?: any): Promise<UserProfile>;
     changePassword(userId: number, dto: ChangePasswordDto): Promise<{
         message: string;
+        userId: number;
     }>;
     forgotPassword(dto: ForgotPasswordDto): Promise<{
         message: string;
+        userId: number;
         email: string;
         code: string;
         expiresIn: string;
@@ -45,5 +50,6 @@ export declare class AuthService {
     }>;
     resetPassword(dto: ResetPasswordDto): Promise<{
         message: string;
+        userId: number;
     }>;
 }

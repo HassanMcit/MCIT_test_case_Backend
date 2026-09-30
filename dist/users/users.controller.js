@@ -87,7 +87,7 @@ let UsersController = class UsersController {
         if (req.user?.role !== 'admin') {
             throw new common_1.ForbiddenException('غير مصرح لك. هذه العملية مخصصة لمدير النظام (admin) فقط');
         }
-        return this.usersService.create(dto);
+        return this.usersService.create(dto, req);
     }
     findAll(req) {
         if (req.user?.role !== 'admin') {
@@ -136,6 +136,18 @@ let UsersController = class UsersController {
     }
     findOne(id, req) {
         return this.usersService.findOne(id, req);
+    }
+    updateUser(req, id, dto) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('غير مصرح لك. تعديل بيانات المستخدمين مخصص لمدير النظام (admin) فقط');
+        }
+        return this.usersService.updateUserByAdmin(id, dto, req);
+    }
+    remove(req, id) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('غير مصرح لك. حذف المستخدمين مخصص لمدير النظام (admin) فقط');
+        }
+        return this.usersService.remove(id);
     }
 };
 exports.UsersController = UsersController;
@@ -393,6 +405,33 @@ __decorate([
     __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a user by ID (Admin Only)' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 4019 }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User updated successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number, Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "updateUser", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a user by ID (Admin Only)' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 4019 }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "remove", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiBearerAuth)('access-token'),

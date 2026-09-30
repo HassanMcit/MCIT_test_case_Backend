@@ -81,7 +81,7 @@ export class UsersController {
     if (req.user?.role !== 'admin') {
       throw new ForbiddenException('غير مصرح لك. هذه العملية مخصصة لمدير النظام (admin) فقط');
     }
-    return this.usersService.create(dto);
+    return this.usersService.create(dto, req);
   }
 
   /**
@@ -370,5 +370,43 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.usersService.findOne(id, req);
+  }
+
+  /**
+   * PATCH /api/users/:id
+   * Update user details (name, role) by ID (Admin Only)
+   */
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a user by ID (Admin Only)' })
+  @ApiParam({ name: 'id', type: Number, example: 4019 })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  updateUser(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateProfileDto & { role?: string },
+  ) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. تعديل بيانات المستخدمين مخصص لمدير النظام (admin) فقط');
+    }
+    return this.usersService.updateUserByAdmin(id, dto, req);
+  }
+
+  /**
+   * DELETE /api/users/:id
+   * Delete user by ID (Admin Only)
+   */
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user by ID (Admin Only)' })
+  @ApiParam({ name: 'id', type: Number, example: 4019 })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  remove(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. حذف المستخدمين مخصص لمدير النظام (admin) فقط');
+    }
+    return this.usersService.remove(id);
   }
 }

@@ -7,6 +7,7 @@ export declare class UsersController {
     constructor(usersService: UsersService);
     create(req: any, dto: CreateUserDto): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -18,10 +19,11 @@ export declare class UsersController {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
     }>;
     findAll(req: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -33,11 +35,12 @@ export declare class UsersController {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
     }[]>;
     getMyAssignedProjects(req: any): Promise<any[]>;
     assignProject(req: any, userId: number, dto: AssignProjectDto): Promise<{
         message: string;
+        userId: any;
         assignment: {
             userId: any;
             userName: any;
@@ -48,9 +51,12 @@ export declare class UsersController {
     }>;
     unassignProject(req: any, userId: number, projectId: number): Promise<{
         message: string;
+        userId: number;
+        projectId: number;
     }>;
     getProfile(req: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -62,13 +68,15 @@ export declare class UsersController {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
     }>;
     updateProfile(req: any, dto: UpdateProfileDto, file?: Express.Multer.File): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -80,14 +88,16 @@ export declare class UsersController {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     updateProfilePost(req: any, dto: UpdateProfileDto, file?: Express.Multer.File): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -99,14 +109,16 @@ export declare class UsersController {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     uploadProfilePhotoPost(req: any, file: Express.Multer.File): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -118,14 +130,16 @@ export declare class UsersController {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     uploadProfilePhotoPatch(req: any, file: Express.Multer.File): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -137,14 +151,16 @@ export declare class UsersController {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     uploadProfilePhotoPut(req: any, file: Express.Multer.File): Promise<{
         message: string;
+        userId: any;
         photo: string;
         user: {
             id: any;
+            userId: any;
             name: any;
             email: any;
             role: any;
@@ -156,13 +172,14 @@ export declare class UsersController {
                 testCases: number;
                 assignedProjects: number;
             };
-            assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+            assignedProjects: any[];
         };
     }>;
     getCurrentUserPhoto(req: any, res: any): Promise<any>;
     getUserPhoto(id: number, res: any): Promise<any>;
     findOne(id: number, req: any): Promise<{
         id: any;
+        userId: any;
         name: any;
         email: any;
         role: any;
@@ -174,6 +191,28 @@ export declare class UsersController {
             testCases: number;
             assignedProjects: number;
         };
-        assignedProjects: Record<string, import("node:sqlite").SQLOutputValue>[];
+        assignedProjects: any[];
+    }>;
+    updateUser(req: any, id: number, dto: UpdateProfileDto & {
+        role?: string;
+    }): Promise<{
+        id: any;
+        userId: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+        profileImage: string;
+        createdAt: any;
+        updatedAt: any;
+        _count: {
+            testCases: number;
+            assignedProjects: number;
+        };
+        assignedProjects: any[];
+    }>;
+    remove(req: any, id: number): Promise<{
+        message: string;
+        userId: number;
     }>;
 }

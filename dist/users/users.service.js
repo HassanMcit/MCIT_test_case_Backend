@@ -247,18 +247,23 @@ let UsersService = class UsersService {
         }
         return this.findOne(userId, req);
     }
-    async remove(userId) {
+    async remove(userId, currentUser) {
         const db = this.databaseService.db;
-        const user = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId);
-        if (!user) {
+        const targetUser = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId);
+        if (!targetUser) {
             throw new common_1.NotFoundException(`المستخدم رقم #${userId} غير موجود`);
         }
-        if (user.id === 1 || (user.role === 'admin' && user.email === 'h.ali@mcit.gov.eg')) {
-            throw new common_1.BadRequestException('لا يمكن حذف حساب مدير النظام الرئيسي');
+        if (targetUser.role === 'admin') {
+            throw new common_1.ForbiddenException('غير مسموح نهائياً بحذف حسابات مديري النظام (Admin). صلاحية الحذف متاحة لمدير النظام على المستخدمين فقط');
         }
+        if (currentUser && currentUser.id === targetUser.id) {
+            throw new common_1.BadRequestException('لا يمكن للمسؤول حذف حسابه الشخصي');
+        }
+        db.prepare('DELETE FROM project_assignments WHERE userId = ?').run(userId);
+        db.prepare('UPDATE test_cases SET testerId = NULL WHERE testerId = ?').run(userId);
         db.prepare('DELETE FROM users WHERE id = ?').run(userId);
         return {
-            message: `تم حذف المستخدم #${userId} (${user.name}) بنجاح`,
+            message: `تم حذف المستخدم #${userId} (${targetUser.name}) بنجاح`,
             userId: userId,
         };
     }

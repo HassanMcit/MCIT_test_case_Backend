@@ -70,7 +70,7 @@ export declare class UsersService {
         };
         assignedProjects: any[];
     }>;
-    remove(userId: number): Promise<{
+    remove(userId: number, currentUser?: any): Promise<{
         message: string;
         userId: number;
     }>;

@@ -147,7 +147,7 @@ let UsersController = class UsersController {
         if (req.user?.role !== 'admin') {
             throw new common_1.ForbiddenException('غير مصرح لك. حذف المستخدمين مخصص لمدير النظام (admin) فقط');
         }
-        return this.usersService.remove(id);
+        return this.usersService.remove(id, req.user);
     }
 };
 exports.UsersController = UsersController;
@@ -421,10 +421,10 @@ __decorate([
 ], UsersController.prototype, "updateUser", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a user by ID (Admin Only)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a user by ID (Admin on regular users only - never Admin on Admin)' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 4019 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User deleted successfully' }),
-    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required, or attempting to delete another admin' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),

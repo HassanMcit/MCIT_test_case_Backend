@@ -395,18 +395,18 @@ export class UsersController {
 
   /**
    * DELETE /api/users/:id
-   * Delete user by ID (Admin Only)
+   * Delete user by ID (Admin on regular users only - Admin CANNOT delete Admin)
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a user by ID (Admin Only)' })
+  @ApiOperation({ summary: 'Delete a user by ID (Admin on regular users only - never Admin on Admin)' })
   @ApiParam({ name: 'id', type: Number, example: 4019 })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
-  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required, or attempting to delete another admin' })
   @ApiResponse({ status: 404, description: 'User not found' })
   remove(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
     if (req.user?.role !== 'admin') {
       throw new ForbiddenException('غير مصرح لك. حذف المستخدمين مخصص لمدير النظام (admin) فقط');
     }
-    return this.usersService.remove(id);
+    return this.usersService.remove(id, req.user);
   }
 }

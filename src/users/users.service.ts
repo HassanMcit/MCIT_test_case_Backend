@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
@@ -254,19 +255,31 @@ export class UsersService {
     return this.findOne(userId, req);
   }
 
-  // ── DELETE /api/users/:id (Admin Delete User) ─────────────────────
-  async remove(userId: number) {
+  // ── DELETE /api/users/:id (Admin removes regular user only) ───────
+  async remove(userId: number, currentUser?: any) {
     const db = this.databaseService.db;
-    const user = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId) as any;
-    if (!user) {
+    const targetUser = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId) as any;
+
+    if (!targetUser) {
       throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
     }
-    if (user.id === 1 || (user.role === 'admin' && user.email === 'h.ali@mcit.gov.eg')) {
-      throw new BadRequestException('لا يمكن حذف حساب مدير النظام الرئيسي');
+
+    // Strict Rule: Admin CANNOT delete another admin under any circumstances
+    if (targetUser.role === 'admin') {
+      throw new ForbiddenException('غير مسموح نهائياً بحذف حسابات مديري النظام (Admin). صلاحية الحذف متاحة لمدير النظام على المستخدمين فقط');
     }
+
+    if (currentUser && currentUser.id === targetUser.id) {
+      throw new BadRequestException('لا يمكن للمسؤول حذف حسابه الشخصي');
+    }
+
+    // Clean up project assignments and test cases before deleting user
+    db.prepare('DELETE FROM project_assignments WHERE userId = ?').run(userId);
+    db.prepare('UPDATE test_cases SET testerId = NULL WHERE testerId = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
     return {
-      message: `تم حذف المستخدم #${userId} (${user.name}) بنجاح`,
+      message: `تم حذف المستخدم #${userId} (${targetUser.name}) بنجاح`,
       userId: userId,
     };
   }

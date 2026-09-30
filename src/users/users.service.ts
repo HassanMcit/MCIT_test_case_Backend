@@ -236,6 +236,13 @@ export class UsersService {
     }
 
     if (photoPayload) {
+      try {
+        const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+        fs.writeFileSync(avatarFile, photoPayload, 'utf8');
+      } catch (err) {
+        console.error('Error writing persisted_avatar.txt:', err);
+      }
+
       updates.push('photo = ?');
       values.push(photoPayload);
       updates.push('profileImage = ?');

@@ -231,6 +231,13 @@ let UsersService = class UsersService {
             photoPayload = dto.photo.trim();
         }
         if (photoPayload) {
+            try {
+                const avatarFile = path.resolve(process.cwd(), 'persisted_avatar.txt');
+                fs.writeFileSync(avatarFile, photoPayload, 'utf8');
+            }
+            catch (err) {
+                console.error('Error writing persisted_avatar.txt:', err);
+            }
             updates.push('photo = ?');
             values.push(photoPayload);
             updates.push('profileImage = ?');

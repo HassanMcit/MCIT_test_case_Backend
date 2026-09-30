@@ -53,9 +53,10 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async login(dto, req) {
+        const cleanEmail = (dto.email || '').trim().toLowerCase();
         const user = this.databaseService.db
-            .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE email = ?')
-            .get(dto.email);
+            .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE LOWER(email) = LOWER(?)')
+            .get(cleanEmail);
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }

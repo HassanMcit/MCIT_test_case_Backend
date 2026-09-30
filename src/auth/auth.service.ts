@@ -37,9 +37,10 @@ export class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────
   async login(dto: LoginDto, req?: any) {
+    const cleanEmail = (dto.email || '').trim().toLowerCase();
     const user = this.databaseService.db
-      .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE email = ?')
-      .get(dto.email) as unknown as UserRow | undefined;
+      .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE LOWER(email) = LOWER(?)')
+      .get(cleanEmail) as unknown as UserRow | undefined;
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');

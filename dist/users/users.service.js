@@ -127,7 +127,7 @@ let UsersService = class UsersService {
         }
         const hashedPassword = bcrypt.hashSync(dto.password, 10);
         const userRole = dto.role || 'tester';
-        const defaultPhoto = this.databaseService.getPersistedPhoto();
+        const defaultPhoto = database_service_1.DatabaseService.DEFAULT_PHOTO_URL;
         let newId;
         if (targetId !== null) {
             db.prepare(`

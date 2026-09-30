@@ -113,7 +113,7 @@ export class UsersService {
 
     const hashedPassword = bcrypt.hashSync(dto.password, 10);
     const userRole = dto.role || 'tester';
-    const defaultPhoto = this.databaseService.getPersistedPhoto();
+    const defaultPhoto = DatabaseService.DEFAULT_PHOTO_URL;
 
     let newId: number;
     if (targetId !== null) {

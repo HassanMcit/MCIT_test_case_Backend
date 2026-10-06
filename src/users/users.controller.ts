@@ -14,7 +14,6 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
-  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,7 +23,6 @@ import {
   ApiParam,
   ApiConsumes,
   ApiBody,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -103,24 +101,17 @@ export class UsersController {
 
   /**
    * GET /api/users/all
-   * Lightweight list of all users (any authenticated user)
-   * Optional filter: ?role=admin | tester | user
+   * Public list of ALL users (no token required, all roles)
    */
+  @Public()
   @Get('all')
   @ApiOperation({
-    summary: 'Get all users - lightweight list (any authenticated user)',
-    description: 'يرجع كل المستخدمين (id, name, email, role, photo). يمكن الفلترة بالدور عبر ?role=tester',
-  })
-  @ApiQuery({
-    name: 'role',
-    required: false,
-    enum: ['admin', 'tester', 'user'],
-    description: 'فلترة المستخدمين حسب الدور (اختياري)',
+    summary: 'Get all users - Public (no authentication required)',
+    description: 'يرجع كل المستخدمين بكل الأدوار (id, name, email, role, photo) بدون الحاجة لتسجيل دخول',
   })
   @ApiResponse({ status: 200, description: 'Array of users: [{ id, name, email, role, photo }]' })
-  @ApiResponse({ status: 401, description: 'Unauthorized: missing or invalid token' })
-  findAllBasic(@Request() req: any, @Query('role') role?: string) {
-    return this.usersService.findAllBasic(role, req);
+  findAllBasic(@Request() req: any) {
+    return this.usersService.findAllBasic(req);
   }
 
   /**

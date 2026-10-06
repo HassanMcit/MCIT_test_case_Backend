@@ -37,7 +37,7 @@ export declare class UsersController {
         };
         assignedProjects: any[];
     }[]>;
-    findAllBasic(req: any, role?: string): Promise<{
+    findAllBasic(req: any): Promise<{
         id: any;
         name: any;
         email: any;

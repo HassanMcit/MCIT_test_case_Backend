@@ -183,17 +183,11 @@ let UsersService = class UsersService {
             };
         });
     }
-    async findAllBasic(role, req) {
+    async findAllBasic(req) {
         const db = this.databaseService.db;
-        const allowedRoles = ['admin', 'tester', 'user'];
-        const filterRole = role && allowedRoles.includes(role) ? role : null;
-        const users = (filterRole
-            ? db
-                .prepare('SELECT id, name, email, role, photo, profileImage FROM users WHERE role = ? ORDER BY name ASC')
-                .all(filterRole)
-            : db
-                .prepare('SELECT id, name, email, role, photo, profileImage FROM users ORDER BY name ASC')
-                .all());
+        const users = db
+            .prepare('SELECT id, name, email, role, photo, profileImage FROM users ORDER BY name ASC')
+            .all();
         return users.map((u) => {
             const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
             return {

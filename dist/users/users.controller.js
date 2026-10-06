@@ -95,6 +95,9 @@ let UsersController = class UsersController {
         }
         return this.usersService.findAll(req);
     }
+    findAllBasic(req, role) {
+        return this.usersService.findAllBasic(role, req);
+    }
     getMyAssignedProjects(req) {
         return this.usersService.getMyAssignedProjects(req.user.id);
     }
@@ -173,6 +176,26 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('all'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get all users - lightweight list (any authenticated user)',
+        description: 'يرجع كل المستخدمين (id, name, email, role, photo). يمكن الفلترة بالدور عبر ?role=tester',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'role',
+        required: false,
+        enum: ['admin', 'tester', 'user'],
+        description: 'فلترة المستخدمين حسب الدور (اختياري)',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Array of users: [{ id, name, email, role, photo }]' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized: missing or invalid token' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('role')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "findAllBasic", null);
 __decorate([
     (0, common_1.Get)('my-assigned-projects'),
     (0, swagger_1.ApiOperation)({ summary: 'Get projects assigned to the currently logged-in user' }),

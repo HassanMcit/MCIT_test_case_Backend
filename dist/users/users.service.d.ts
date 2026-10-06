@@ -38,6 +38,13 @@ export declare class UsersService {
         };
         assignedProjects: any[];
     }[]>;
+    findAllBasic(role?: string, req?: any): Promise<{
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        photo: string;
+    }[]>;
     findOne(id: number, req?: any): Promise<{
         id: any;
         userId: any;

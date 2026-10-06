@@ -183,6 +183,28 @@ let UsersService = class UsersService {
             };
         });
     }
+    async findAllBasic(role, req) {
+        const db = this.databaseService.db;
+        const allowedRoles = ['admin', 'tester', 'user'];
+        const filterRole = role && allowedRoles.includes(role) ? role : null;
+        const users = (filterRole
+            ? db
+                .prepare('SELECT id, name, email, role, photo, profileImage FROM users WHERE role = ? ORDER BY name ASC')
+                .all(filterRole)
+            : db
+                .prepare('SELECT id, name, email, role, photo, profileImage FROM users ORDER BY name ASC')
+                .all());
+        return users.map((u) => {
+            const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
+            return {
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                role: u.role,
+                photo: photoUrl,
+            };
+        });
+    }
     async findOne(id, req) {
         const db = this.databaseService.db;
         const user = db

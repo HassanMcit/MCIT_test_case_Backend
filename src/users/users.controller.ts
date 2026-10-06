@@ -14,6 +14,7 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +24,7 @@ import {
   ApiParam,
   ApiConsumes,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -97,6 +99,28 @@ export class UsersController {
       throw new ForbiddenException('غير مصرح لك. عرض قائمة المستخدمين مخصص لمدير النظام (admin) فقط');
     }
     return this.usersService.findAll(req);
+  }
+
+  /**
+   * GET /api/users/all
+   * Lightweight list of all users (any authenticated user)
+   * Optional filter: ?role=admin | tester | user
+   */
+  @Get('all')
+  @ApiOperation({
+    summary: 'Get all users - lightweight list (any authenticated user)',
+    description: 'يرجع كل المستخدمين (id, name, email, role, photo). يمكن الفلترة بالدور عبر ?role=tester',
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: ['admin', 'tester', 'user'],
+    description: 'فلترة المستخدمين حسب الدور (اختياري)',
+  })
+  @ApiResponse({ status: 200, description: 'Array of users: [{ id, name, email, role, photo }]' })
+  @ApiResponse({ status: 401, description: 'Unauthorized: missing or invalid token' })
+  findAllBasic(@Request() req: any, @Query('role') role?: string) {
+    return this.usersService.findAllBasic(role, req);
   }
 
   /**

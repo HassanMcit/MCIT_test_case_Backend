@@ -19,9 +19,8 @@ export class UsersService {
 
   async serveUserPhoto(userId: number, res: any) {
     const db = this.databaseService.db;
-    const user = db
-      .prepare('SELECT id, name, photo, profileImage FROM users WHERE id = ?')
-      .get(userId) as any;
+    const result = await db.query('SELECT id, name, photo, "profileImage" FROM users WHERE id = $1', [userId]);
+    const user = result.rows[0] as any;
 
     const DEFAULT_PHOTO_URL = DatabaseService.DEFAULT_PHOTO_URL;
 
@@ -82,9 +81,8 @@ export class UsersService {
   async create(dto: CreateUserDto, req?: any) {
     const db = this.databaseService.db;
 
-    const existingEmail = db
-      .prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)')
-      .get(dto.email.trim());
+    const existingEmailResult = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [dto.email.trim()]);
+    const existingEmail = existingEmailResult.rows[0];
     if (existingEmail) {
       throw new ConflictException('البريد الإلكتروني مسجل بالفعل لمستخدم آخر');
     }
@@ -105,7 +103,8 @@ export class UsersService {
         throw new BadRequestException('الرقم الوظيفي (id) يجب أن يكون رقماً صحيحاً موجباً');
       }
 
-      const existingId = db.prepare('SELECT id, name FROM users WHERE id = ?').get(targetId) as any;
+      const existingIdResult = await db.query('SELECT id, name FROM users WHERE id = $1', [targetId]);
+      const existingId = existingIdResult.rows[0] as any;
       if (existingId) {
         throw new ConflictException(`الرقم الوظيفي #${targetId} مسجل بالفعل للمستخدم (${existingId.name})`);
       }
@@ -117,17 +116,17 @@ export class UsersService {
 
     let newId: number;
     if (targetId !== null) {
-      db.prepare(`
-        INSERT INTO users (id, name, email, password, role, photo, profileImage)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(targetId, dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto);
+      await db.query(`
+        INSERT INTO users (id, name, email, password, role, photo, "profileImage")
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [targetId, dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto]);
       newId = targetId;
     } else {
-      const result = db.prepare(`
-        INSERT INTO users (name, email, password, role, photo, profileImage)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto);
-      newId = Number(result.lastInsertRowid);
+      const result = await db.query(`
+        INSERT INTO users (name, email, password, role, photo, "profileImage")
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+      `, [dto.name.trim(), dto.email.trim(), hashedPassword, userRole, defaultPhoto, defaultPhoto]);
+      newId = result.rows[0].id;
     }
 
     return this.findOne(newId, req);
@@ -136,28 +135,29 @@ export class UsersService {
   // ── GET /api/users (Admin Only - with assigned projects) ──────────
   async findAll(req?: any) {
     const db = this.databaseService.db;
-    const users = db
-      .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users ORDER BY id ASC')
-      .all() as any[];
+    const usersResult = await db.query('SELECT id, name, email, role, photo, "profileImage", "createdAt", "updatedAt" FROM users ORDER BY id ASC');
+    const users = usersResult.rows as any[];
 
-    const stmtProjects = db.prepare(`
-      SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
+    const stmtProjectsSql = `
+      SELECT p.id, p.name, p.description, p.environment, p.status, pa."assignedAt"
       FROM projects p
-      INNER JOIN project_assignments pa ON p.id = pa.projectId
-      WHERE pa.userId = ?
-      ORDER BY pa.assignedAt DESC
-    `);
+      INNER JOIN project_assignments pa ON p.id = pa."projectId"
+      WHERE pa."userId" = $1
+      ORDER BY pa."assignedAt" DESC
+    `;
 
-    const stmtCounts = db.prepare(
-      'SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?',
-    );
+    const stmtCountsSql = 'SELECT COUNT(*) as count FROM test_cases WHERE "testerId" = $1';
 
-    return users.map((u) => {
-      const assignedProjects = stmtProjects.all(u.id).map((p: any) => ({
+    return Promise.all(users.map(async (u) => {
+      const assignedProjectsResult = await db.query(stmtProjectsSql, [u.id]);
+      const assignedProjects = assignedProjectsResult.rows.map((p: any) => ({
         ...p,
         userId: u.id,
       }));
-      const testCasesCount = (stmtCounts.get(u.id) as { count: number }).count;
+
+      const testCasesCountResult = await db.query(stmtCountsSql, [u.id]);
+      const testCasesCount = Number(testCasesCountResult.rows[0].count);
+
       const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
       return {
         id: u.id,
@@ -175,15 +175,14 @@ export class UsersService {
         },
         assignedProjects,
       };
-    });
+    }));
   }
 
   // ── GET /api/users/all (Public - all users, all roles) ─────────────
   async findAllBasic(req?: any) {
     const db = this.databaseService.db;
-    const users = db
-      .prepare('SELECT id, name, email, role, photo, profileImage FROM users ORDER BY name ASC')
-      .all() as any[];
+    const usersResult = await db.query('SELECT id, name, email, role, photo, "profileImage" FROM users ORDER BY name ASC');
+    const users = usersResult.rows as any[];
 
     return users.map((u) => {
       const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
@@ -200,31 +199,24 @@ export class UsersService {
   // ── GET /api/users/:id ───────────────────────────────────────────
   async findOne(id: number, req?: any) {
     const db = this.databaseService.db;
-    const user = db
-      .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users WHERE id = ?')
-      .get(id) as any;
+    const userResult = await db.query('SELECT id, name, email, role, photo, "profileImage", "createdAt", "updatedAt" FROM users WHERE id = $1', [id]);
+    const user = userResult.rows[0] as any;
 
     if (!user) {
       throw new NotFoundException(`المستخدم رقم #${id} غير موجود`);
     }
 
-    const testCaseCount = (
-      db
-        .prepare('SELECT COUNT(*) as count FROM test_cases WHERE testerId = ?')
-        .get(id) as { count: number }
-    ).count;
+    const testCaseCountResult = await db.query('SELECT COUNT(*) as count FROM test_cases WHERE "testerId" = $1', [id]);
+    const testCaseCount = Number(testCaseCountResult.rows[0].count);
 
-    const assignedProjects = (
-      db
-        .prepare(`
-          SELECT p.id, p.name, p.description, p.environment, p.status, pa.assignedAt
+    const assignedProjectsResult = await db.query(`
+          SELECT p.id, p.name, p.description, p.environment, p.status, pa."assignedAt"
           FROM projects p
-          INNER JOIN project_assignments pa ON p.id = pa.projectId
-          WHERE pa.userId = ?
-          ORDER BY pa.assignedAt DESC
-        `)
-        .all(id) as any[]
-    ).map((p) => ({
+          INNER JOIN project_assignments pa ON p.id = pa."projectId"
+          WHERE pa."userId" = $1
+          ORDER BY pa."assignedAt" DESC
+        `, [id]);
+    const assignedProjects = assignedProjectsResult.rows.map((p) => ({
       ...p,
       userId: user.id,
     }));
@@ -252,24 +244,26 @@ export class UsersService {
   // ── PATCH /api/users/:id (Admin Update User) ──────────────────────
   async updateUserByAdmin(userId: number, dto: any, req?: any) {
     const db = this.databaseService.db;
-    const user = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId) as any;
+    const userResult = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [userId]);
+    const user = userResult.rows[0];
     if (!user) {
       throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
     }
     const updates: string[] = [];
     const values: any[] = [];
+    let pidx = 1;
     if (dto.name && dto.name.trim() !== '') {
-      updates.push('name = ?');
+      updates.push(`name = $${pidx++}`);
       values.push(dto.name.trim());
     }
     if (dto.role && ['admin', 'tester', 'user'].includes(dto.role)) {
-      updates.push('role = ?');
+      updates.push(`role = $${pidx++}`);
       values.push(dto.role);
     }
     if (updates.length > 0) {
-      updates.push("updatedAt = datetime('now')");
+      updates.push(`"updatedAt" = NOW()`);
       values.push(userId);
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+      await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${pidx}`, values);
     }
     return this.findOne(userId, req);
   }
@@ -277,7 +271,8 @@ export class UsersService {
   // ── DELETE /api/users/:id (Admin removes regular user only) ───────
   async remove(userId: number, currentUser?: any) {
     const db = this.databaseService.db;
-    const targetUser = db.prepare('SELECT id, name, role, email FROM users WHERE id = ?').get(userId) as any;
+    const targetResult = await db.query('SELECT id, name, role, email FROM users WHERE id = $1', [userId]);
+    const targetUser = targetResult.rows[0] as any;
 
     if (!targetUser) {
       throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
@@ -293,9 +288,9 @@ export class UsersService {
     }
 
     // Clean up project assignments and test cases before deleting user
-    db.prepare('DELETE FROM project_assignments WHERE userId = ?').run(userId);
-    db.prepare('UPDATE test_cases SET testerId = NULL WHERE testerId = ?').run(userId);
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    await db.query('DELETE FROM project_assignments WHERE "userId" = $1', [userId]);
+    await db.query('UPDATE test_cases SET "testerId" = NULL WHERE "testerId" = $1', [userId]);
+    await db.query('DELETE FROM users WHERE id = $1', [userId]);
 
     return {
       message: `تم حذف المستخدم #${userId} (${targetUser.name}) بنجاح`,
@@ -307,9 +302,8 @@ export class UsersService {
   async updateProfile(userId: number, dto: UpdateProfileDto, file?: Express.Multer.File, req?: any) {
     const db = this.databaseService.db;
 
-    const user = db
-      .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
-      .get(userId) as any;
+    const userResult = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [userId]);
+    const user = userResult.rows[0];
 
     if (!user) {
       throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
@@ -317,9 +311,10 @@ export class UsersService {
 
     const updates: string[] = [];
     const values: any[] = [];
+    let pidx = 1;
 
     if (dto?.name !== undefined && dto.name.trim() !== '') {
-      updates.push('name = ?');
+      updates.push(`name = $${pidx++}`);
       values.push(dto.name.trim());
     }
 
@@ -356,16 +351,16 @@ export class UsersService {
         console.error('Error writing persisted_avatar.txt:', err);
       }
 
-      updates.push('photo = ?');
+      updates.push(`photo = $${pidx++}`);
       values.push(photoPayload);
-      updates.push('profileImage = ?');
+      updates.push(`"profileImage" = $${pidx++}`);
       values.push(photoPayload);
     }
 
     if (updates.length > 0) {
-      updates.push("updatedAt = datetime('now')");
+      updates.push(`"updatedAt" = NOW()`);
       values.push(userId);
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+      await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${pidx}`, values);
     }
 
     const updatedUser = await this.findOne(userId, req);
@@ -391,30 +386,31 @@ export class UsersService {
     const db = this.databaseService.db;
 
     // Check user exists
-    const user = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId) as any;
+    const userResult = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [userId]);
+    const user = userResult.rows[0];
     if (!user) {
       throw new NotFoundException(`المستخدم رقم #${userId} غير موجود`);
     }
 
     // Check project exists
-    const project = db.prepare('SELECT id, name, environment, status FROM projects WHERE id = ?').get(dto.projectId) as any;
+    const projectResult = await db.query('SELECT id, name, environment, status FROM projects WHERE id = $1', [dto.projectId]);
+    const project = projectResult.rows[0];
     if (!project) {
       throw new NotFoundException(`المشروع رقم #${dto.projectId} غير موجود`);
     }
 
     // Check if already assigned
-    const existing = db
-      .prepare('SELECT id FROM project_assignments WHERE userId = ? AND projectId = ?')
-      .get(userId, dto.projectId);
+    const existingResult = await db.query('SELECT id FROM project_assignments WHERE "userId" = $1 AND "projectId" = $2', [userId, dto.projectId]);
+    const existing = existingResult.rows[0];
     if (existing) {
       throw new ConflictException(`المشروع "${project.name}" مسند بالفعل للمستخدم "${user.name}"`);
     }
 
     // Insert assignment
-    db.prepare(`
-      INSERT INTO project_assignments (userId, projectId)
-      VALUES (?, ?)
-    `).run(userId, dto.projectId);
+    await db.query(`
+      INSERT INTO project_assignments ("userId", "projectId")
+      VALUES ($1, $2)
+    `, [userId, dto.projectId]);
 
     return {
       message: `تم إسناد مشروع "${project.name}" للمستخدم "${user.name}" بنجاح للبدء في اختباره`,
@@ -432,15 +428,14 @@ export class UsersService {
   // ── DELETE /api/users/:id/assign-project/:projectId (Admin Only) ─
   async unassignProject(userId: number, projectId: number) {
     const db = this.databaseService.db;
-    const existing = db
-      .prepare('SELECT id FROM project_assignments WHERE userId = ? AND projectId = ?')
-      .get(userId, projectId);
+    const existingResult = await db.query('SELECT id FROM project_assignments WHERE "userId" = $1 AND "projectId" = $2', [userId, projectId]);
+    const existing = existingResult.rows[0];
 
     if (!existing) {
       throw new NotFoundException('هذا الإسناد غير موجود بالفعل');
     }
 
-    db.prepare('DELETE FROM project_assignments WHERE userId = ? AND projectId = ?').run(userId, projectId);
+    await db.query('DELETE FROM project_assignments WHERE "userId" = $1 AND "projectId" = $2', [userId, projectId]);
     return {
       message: `تم إلغاء إسناد المشروع #${projectId} من المستخدم #${userId} بنجاح`,
       userId: userId,
@@ -452,38 +447,38 @@ export class UsersService {
   async getMyAssignedProjects(userId: number) {
     const db = this.databaseService.db;
 
-    const stmt = db.prepare(`
-      SELECT p.*, pa.assignedAt
+    const projectsResult = await db.query(`
+      SELECT p.*, pa."assignedAt"
       FROM projects p
-      INNER JOIN project_assignments pa ON p.id = pa.projectId
-      WHERE pa.userId = ?
-      ORDER BY pa.assignedAt DESC
-    `);
+      INNER JOIN project_assignments pa ON p.id = pa."projectId"
+      WHERE pa."userId" = $1
+      ORDER BY pa."assignedAt" DESC
+    `, [userId]);
+    const projects = projectsResult.rows;
 
-    const projects = stmt.all(userId) as any[];
-
-    const stmtStats = db.prepare(`
+    const statsSql = `
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM test_cases
-      WHERE projectId = ?
-    `);
+      WHERE "projectId" = $1
+    `;
 
-    return projects.map((p) => {
-      const statsRow = stmtStats.get(p.id) as {
-        total: number;
-        passed: number | null;
-        failed: number | null;
-        pending: number | null;
+    return Promise.all(projects.map(async (p) => {
+      const statsResult = await db.query(statsSql, [p.id]);
+      const statsRow = statsResult.rows[0] as {
+        total: string;
+        passed: string | null;
+        failed: string | null;
+        pending: string | null;
       };
 
-      const total = statsRow.total || 0;
-      const passed = statsRow.passed || 0;
-      const failed = statsRow.failed || 0;
-      const pending = statsRow.pending || 0;
+      const total = Number(statsRow.total) || 0;
+      const passed = Number(statsRow.passed) || 0;
+      const failed = Number(statsRow.failed) || 0;
+      const pending = Number(statsRow.pending) || 0;
       const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
       return {
@@ -491,6 +486,6 @@ export class UsersService {
         userId: userId,
         stats: { total, passed, failed, pending, successRate },
       };
-    });
+    }));
   }
 }

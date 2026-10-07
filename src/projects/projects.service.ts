@@ -9,19 +9,17 @@ export class ProjectsService {
   // ── POST /api/projects ───────────────────────────────────────────
   async create(dto: CreateProjectDto) {
     const db = this.databaseService.db;
-    const stmt = db.prepare(`
+    const result = await db.query(`
       INSERT INTO projects (name, description, environment, status)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+      VALUES ($1, $2, $3, $4) RETURNING id
+    `, [
       dto.name,
       dto.description || null,
       dto.environment || 'staging',
       dto.status || 'active',
-    );
+    ]);
 
-    const newId = Number(result.lastInsertRowid);
+    const newId = result.rows[0].id;
     return this.findOne(newId);
   }
 
@@ -45,78 +43,87 @@ export class ProjectsService {
       params.push(s, s);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    let pidx = 1;
+    const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
+    const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
     const sql = `SELECT * FROM projects ${whereClause} ORDER BY id ASC`;
-    const projects = db.prepare(sql).all(...params) as any[];
+    const projectsResult = await db.query(sql, params);
+    const projects = projectsResult.rows;
 
-    const stmtStats = db.prepare(`
+    const statsSql = `
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM test_cases
-      WHERE projectId = ?
-    `);
+      WHERE "projectId" = $1
+    `;
 
-    const stmtAssignedUsers = db.prepare(`
-      SELECT u.id, u.id as userId, u.name, u.email, u.role, u.photo, u.profileImage, pa.assignedAt
+    const assignedUsersSql = `
+      SELECT u.id, u.id as "userId", u.name, u.email, u.role, u.photo, u."profileImage", pa."assignedAt"
       FROM users u
-      INNER JOIN project_assignments pa ON u.id = pa.userId
-      WHERE pa.projectId = ?
-      ORDER BY pa.assignedAt DESC
-    `);
+      INNER JOIN project_assignments pa ON u.id = pa."userId"
+      WHERE pa."projectId" = $1
+      ORDER BY pa."assignedAt" DESC
+    `;
 
-    return projects.map((p) => {
-      const statsRow = stmtStats.get(p.id) as {
-        total: number;
-        passed: number | null;
-        failed: number | null;
-        pending: number | null;
+    return Promise.all(projects.map(async (p) => {
+      const statsResult = await db.query(statsSql, [p.id]);
+      const statsRow = statsResult.rows[0] as {
+        total: string;
+        passed: string | null;
+        failed: string | null;
+        pending: string | null;
       };
 
-      const total = statsRow.total || 0;
-      const passed = statsRow.passed || 0;
-      const failed = statsRow.failed || 0;
-      const pending = statsRow.pending || 0;
+      const total = Number(statsRow.total) || 0;
+      const passed = Number(statsRow.passed) || 0;
+      const failed = Number(statsRow.failed) || 0;
+      const pending = Number(statsRow.pending) || 0;
       const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
-      const assignedUsers = stmtAssignedUsers.all(p.id) as any[];
+      
+      const assignedUsersResult = await db.query(assignedUsersSql, [p.id]);
+      const assignedUsers = assignedUsersResult.rows;
 
       return {
         ...p,
         stats: { total, passed, failed, pending, successRate },
         assignedUsers,
       };
-    });
+    }));
   }
 
   // ── GET /api/projects/:id ────────────────────────────────────────
   async findOne(id: number) {
     const db = this.databaseService.db;
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+    const projectResult = await db.query('SELECT * FROM projects WHERE id = $1', [id]);
+    const project = projectResult.rows[0] as any;
 
     if (!project) {
       throw new NotFoundException(`Project #${id} not found`);
     }
 
-    const assignedUsers = db.prepare(`
-      SELECT u.id, u.id as userId, u.name, u.email, u.role, u.photo, u.profileImage, pa.assignedAt
+    const assignedUsersResult = await db.query(`
+      SELECT u.id, u.id as "userId", u.name, u.email, u.role, u.photo, u."profileImage", pa."assignedAt"
       FROM users u
-      INNER JOIN project_assignments pa ON u.id = pa.userId
-      WHERE pa.projectId = ?
-      ORDER BY pa.assignedAt DESC
-    `).all(id) as any[];
+      INNER JOIN project_assignments pa ON u.id = pa."userId"
+      WHERE pa."projectId" = $1
+      ORDER BY pa."assignedAt" DESC
+    `, [id]);
+    const assignedUsers = assignedUsersResult.rows;
 
-    const recentTestCases = db.prepare(`
+    const recentTestCasesResult = await db.query(`
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name
       FROM test_cases tc
-      LEFT JOIN users u ON tc.testerId = u.id
-      WHERE tc.projectId = ?
+      LEFT JOIN users u ON tc."testerId" = u.id
+      WHERE tc."projectId" = $1
       ORDER BY tc.id DESC
       LIMIT 5
-    `).all(id) as any[];
+    `, [id]);
+    const recentTestCases = recentTestCasesResult.rows;
 
     const formattedTCs = recentTestCases.map((tc) => {
       const { tester_id, tester_name, ...base } = tc;
@@ -131,20 +138,21 @@ export class ProjectsService {
       };
     });
 
-    const statsRow = db.prepare(`
+    const statsResult = await db.query(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM test_cases
-      WHERE projectId = ?
-    `).get(id) as any;
+      WHERE "projectId" = $1
+    `, [id]);
+    const statsRow = statsResult.rows[0] as any;
 
-    const total = statsRow.total || 0;
-    const passed = statsRow.passed || 0;
-    const failed = statsRow.failed || 0;
-    const pending = statsRow.pending || 0;
+    const total = Number(statsRow.total) || 0;
+    const passed = Number(statsRow.passed) || 0;
+    const failed = Number(statsRow.failed) || 0;
+    const pending = Number(statsRow.pending) || 0;
     const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
     return {
@@ -163,18 +171,19 @@ export class ProjectsService {
     const fields: string[] = [];
     const values: any[] = [];
 
+    let pidx = 1;
     const allowed = ['name', 'description', 'environment', 'status'];
     for (const key of allowed) {
       if ((dto as any)[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`"${key}" = $${pidx++}`);
         values.push((dto as any)[key]);
       }
     }
 
     if (fields.length > 0) {
-      fields.push("updatedAt = datetime('now')");
+      fields.push(`"updatedAt" = NOW()`);
       values.push(id);
-      db.prepare(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+      await db.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${pidx}`, values);
     }
 
     return this.findOne(id);
@@ -184,7 +193,7 @@ export class ProjectsService {
   async remove(id: number) {
     const db = this.databaseService.db;
     await this.findOne(id);
-    db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+    await db.query('DELETE FROM projects WHERE id = $1', [id]);
     return { message: `Project #${id} deleted successfully` };
   }
 }

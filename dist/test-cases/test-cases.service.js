@@ -16,34 +16,47 @@ let TestCasesService = class TestCasesService {
     constructor(databaseService) {
         this.databaseService = databaseService;
     }
-    generateTestId() {
-        const row = this.databaseService.db
-            .prepare('SELECT MAX(id) as maxId FROM test_cases')
-            .get();
-        const nextNum = (row.maxId || 0) + 1;
+    async generateTestId() {
+        const result = await this.databaseService.db.query('SELECT MAX(id) as "maxId" FROM test_cases');
+        const row = result.rows[0];
+        const nextNum = (Number(row.maxId) || 0) + 1;
         return `TC-${String(nextNum).padStart(4, '0')}`;
     }
     async create(dto) {
         const db = this.databaseService.db;
-        const testId = dto.testId || this.generateTestId();
-        const existing = db
-            .prepare('SELECT id FROM test_cases WHERE testId = ?')
-            .get(testId);
-        if (existing) {
+        const testId = dto.testId || await this.generateTestId();
+        const existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1', [testId]);
+        if (existingResult.rows.length > 0) {
             throw new common_1.ConflictException(`Test case with ID "${testId}" already exists`);
         }
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
         const targetTesterId = dto.testerId ?? dto.userId ?? null;
-        const stmt = db.prepare(`
+        const stmt = `
       INSERT INTO test_cases (
-        testId, module, pageName, scenario, preConditions, steps,
-        expectedResult, actualResult, priority, status, notes,
-        executedAt, testerId, projectId
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-        const result = stmt.run(testId, dto.module, dto.pageName || null, dto.scenario, dto.preConditions || null, stepsStr, dto.expectedResult, dto.actualResult || null, dto.priority || 'medium', dto.status || 'pending', dto.notes || null, executedAt, targetTesterId, dto.projectId || null);
-        const newId = Number(result.lastInsertRowid);
+        "testId", module, "pageName", scenario, "preConditions", steps,
+        "expectedResult", "actualResult", priority, status, notes,
+        "executedAt", "testerId", "projectId"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id
+    `;
+        const result = await db.query(stmt, [
+            testId,
+            dto.module,
+            dto.pageName || null,
+            dto.scenario,
+            dto.preConditions || null,
+            stepsStr,
+            dto.expectedResult,
+            dto.actualResult || null,
+            dto.priority || 'medium',
+            dto.status || 'pending',
+            dto.notes || null,
+            executedAt,
+            targetTesterId,
+            dto.projectId || null,
+        ]);
+        const newId = result.rows[0].id;
         return this.findOne(newId);
     }
     async findAll(query) {
@@ -66,31 +79,35 @@ let TestCasesService = class TestCasesService {
             params.push(`%${query.module}%`);
         }
         if (query.projectId) {
-            conditions.push('tc.projectId = ?');
+            conditions.push('tc."projectId" = ?');
             params.push(Number(query.projectId));
         }
         if (query.search) {
-            conditions.push('(tc.testId LIKE ? OR tc.module LIKE ? OR tc.scenario LIKE ?)');
+            conditions.push('(tc."testId" LIKE ? OR tc.module LIKE ? OR tc.scenario LIKE ?)');
             const s = `%${query.search}%`;
             params.push(s, s, s);
         }
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        let pidx = 1;
+        const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
+        const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
         const countSql = `SELECT COUNT(*) as total FROM test_cases tc ${whereClause}`;
-        const totalRow = db.prepare(countSql).get(...params);
-        const total = totalRow.total;
+        const totalResult = await db.query(countSql, params);
+        const total = Number(totalResult.rows[0].total);
+        const limitOffsetParams = [...params, limit, offset];
         const dataSql = `
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
-      LEFT JOIN users u ON tc.testerId = u.id
-      LEFT JOIN projects p ON tc.projectId = p.id
+      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
       ORDER BY tc.id DESC
-      LIMIT ? OFFSET ?
+      LIMIT $${pidx++} OFFSET $${pidx++}
     `;
-        const rows = db.prepare(dataSql).all(...params, limit, offset);
+        const rowsResult = await db.query(dataSql, limitOffsetParams);
+        const rows = rowsResult.rows;
         const formattedData = rows.map((r) => {
             const { tester_id, tester_name, tester_email, project_id, project_name, ...base } = r;
             let steps = [];
@@ -127,11 +144,12 @@ let TestCasesService = class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
-      LEFT JOIN users u ON tc.testerId = u.id
-      LEFT JOIN projects p ON tc.projectId = p.id
-      WHERE tc.id = ?
+      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN projects p ON tc."projectId" = p.id
+      WHERE tc.id = $1
     `;
-        const row = db.prepare(sql).get(id);
+        const result = await db.query(sql, [id]);
+        const row = result.rows[0];
         if (!row) {
             throw new common_1.NotFoundException(`Test case #${id} not found`);
         }
@@ -155,11 +173,12 @@ let TestCasesService = class TestCasesService {
     async update(id, dto) {
         const db = this.databaseService.db;
         await this.findOne(id);
+        let pidx = 1;
         const fields = [];
         const values = [];
         const effectiveTesterId = dto.testerId ?? dto.userId;
         if (effectiveTesterId !== undefined) {
-            fields.push('testerId = ?');
+            fields.push(`"testerId" = $${pidx++}`);
             values.push(effectiveTesterId);
         }
         const allowed = [
@@ -169,26 +188,26 @@ let TestCasesService = class TestCasesService {
         ];
         for (const key of allowed) {
             if (dto[key] !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`"${key}" = $${pidx++}`);
                 values.push(dto[key]);
             }
         }
         if (dto.steps !== undefined) {
-            fields.push('steps = ?');
+            fields.push(`steps = $${pidx++}`);
             values.push(JSON.stringify(dto.steps));
         }
         if (fields.length > 0) {
-            fields.push("updatedAt = datetime('now')");
+            fields.push(`"updatedAt" = NOW()`);
             values.push(id);
-            const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = ?`;
-            db.prepare(sql).run(...values);
+            const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = $${pidx}`;
+            await db.query(sql, values);
         }
         return this.findOne(id);
     }
     async remove(id) {
         const db = this.databaseService.db;
         await this.findOne(id);
-        db.prepare('DELETE FROM test_cases WHERE id = ?').run(id);
+        await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
         return { message: `Test case #${id} deleted successfully` };
     }
 };

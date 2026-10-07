@@ -38,9 +38,8 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         this.databaseService = databaseService;
     }
     async validate(payload) {
-        const user = this.databaseService.db
-            .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
-            .get(payload.sub);
+        const userResult = await this.databaseService.db.query('SELECT id, name, email, role FROM users WHERE id = $1', [payload.sub]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.UnauthorizedException('User no longer exists');
         }

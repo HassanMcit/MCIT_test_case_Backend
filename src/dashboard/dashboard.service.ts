@@ -9,17 +9,17 @@ export class DashboardService {
   async getStats() {
     const db = this.databaseService.db;
 
-    const totalRow = db.prepare('SELECT COUNT(*) as count FROM test_cases').get() as { count: number };
-    const passedRow = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'passed'").get() as { count: number };
-    const failedRow = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed'").get() as { count: number };
-    const pendingRow = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'pending'").get() as { count: number };
-    const projectRow = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
+    const totalRow = await db.query('SELECT COUNT(*) as count FROM test_cases');
+    const passedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'passed'");
+    const failedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed'");
+    const pendingRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'pending'");
+    const projectRow = await db.query('SELECT COUNT(*) as count FROM projects');
 
-    const total = totalRow.count;
-    const passed = passedRow.count;
-    const failed = failedRow.count;
-    const pending = pendingRow.count;
-    const totalProjects = projectRow.count;
+    const total = Number(totalRow.rows[0].count);
+    const passed = Number(passedRow.rows[0].count);
+    const failed = Number(failedRow.rows[0].count);
+    const pending = Number(pendingRow.rows[0].count);
+    const totalProjects = Number(projectRow.rows[0].count);
 
     const passRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
@@ -43,10 +43,6 @@ export class DashboardService {
       pending: number;
     }[] = [];
 
-    const stmtPassed = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'passed' AND executedAt >= ? AND executedAt < ?");
-    const stmtFailed = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed' AND executedAt >= ? AND executedAt < ?");
-    const stmtPending = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'pending' AND executedAt >= ? AND executedAt < ?");
-
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -58,9 +54,13 @@ export class DashboardService {
       const isoStart = date.toISOString();
       const isoEnd = nextDate.toISOString();
 
-      const passed = (stmtPassed.get(isoStart, isoEnd) as { count: number }).count;
-      const failed = (stmtFailed.get(isoStart, isoEnd) as { count: number }).count;
-      const pending = (stmtPending.get(isoStart, isoEnd) as { count: number }).count;
+      const passedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'passed' AND \"executedAt\" >= $1 AND \"executedAt\" < $2", [isoStart, isoEnd]);
+      const failedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed' AND \"executedAt\" >= $1 AND \"executedAt\" < $2", [isoStart, isoEnd]);
+      const pendingRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'pending' AND \"executedAt\" >= $1 AND \"executedAt\" < $2", [isoStart, isoEnd]);
+
+      const passed = Number(passedRow.rows[0].count);
+      const failed = Number(failedRow.rows[0].count);
+      const pending = Number(pendingRow.rows[0].count);
 
       results.push({
         date: date.toISOString().split('T')[0],
@@ -78,20 +78,19 @@ export class DashboardService {
     const db = this.databaseService.db;
     const priorities = ['critical', 'high', 'medium', 'low'];
 
-    const totalRow = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed'").get() as { count: number };
-    const total = totalRow.count;
+    const totalRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed'");
+    const total = Number(totalRow.rows[0].count);
 
-    const stmt = db.prepare("SELECT COUNT(*) as count FROM test_cases WHERE priority = ? AND status = 'failed'");
-
-    const breakdown = priorities.map((priority) => {
-      const count = (stmt.get(priority) as { count: number }).count;
+    const breakdown = await Promise.all(priorities.map(async (priority) => {
+      const row = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE priority = $1 AND status = 'failed'", [priority]);
+      const count = Number(row.rows[0].count);
       const percentage = total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
       return {
         priority,
         count,
         percentage,
       };
-    });
+    }));
 
     return { total, breakdown };
   }

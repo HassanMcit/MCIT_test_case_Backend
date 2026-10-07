@@ -54,9 +54,8 @@ let AuthService = class AuthService {
     }
     async login(dto, req) {
         const cleanEmail = (dto.email || '').trim().toLowerCase();
-        const user = this.databaseService.db
-            .prepare('SELECT id, name, email, password, role, photo, profileImage, updatedAt FROM users WHERE LOWER(email) = LOWER(?)')
-            .get(cleanEmail);
+        const userResult = await this.databaseService.db.query('SELECT id, name, email, password, role, photo, "profileImage", "updatedAt" FROM users WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }
@@ -82,9 +81,8 @@ let AuthService = class AuthService {
         };
     }
     async getMe(userId, req) {
-        const user = this.databaseService.db
-            .prepare('SELECT id, name, email, role, photo, profileImage, createdAt, updatedAt FROM users WHERE id = ?')
-            .get(userId);
+        const userResult = await this.databaseService.db.query('SELECT id, name, email, role, photo, "profileImage", "createdAt", "updatedAt" FROM users WHERE id = $1', [userId]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
@@ -107,9 +105,8 @@ let AuthService = class AuthService {
         if (dto.oldPassword === dto.newPassword) {
             throw new common_1.BadRequestException('كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية');
         }
-        const user = this.databaseService.db
-            .prepare('SELECT id, password FROM users WHERE id = ?')
-            .get(userId);
+        const userResult = await this.databaseService.db.query('SELECT id, password FROM users WHERE id = $1', [userId]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.UnauthorizedException('المستخدم غير موجود');
         }
@@ -118,32 +115,25 @@ let AuthService = class AuthService {
             throw new common_1.BadRequestException('كلمة المرور الحالية غير صحيحة');
         }
         const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-        this.databaseService.db
-            .prepare("UPDATE users SET password = ?, updatedAt = datetime('now') WHERE id = ?")
-            .run(hashedPassword, userId);
+        await this.databaseService.db.query('UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2', [hashedPassword, userId]);
         return {
             message: 'تم تغيير كلمة المرور بنجاح',
             userId: userId,
         };
     }
     async forgotPassword(dto) {
-        const user = this.databaseService.db
-            .prepare('SELECT id, name, email, role FROM users WHERE email = ?')
-            .get(dto.email);
+        const userResult = await this.databaseService.db.query('SELECT id, name, email, role FROM users WHERE email = $1', [dto.email]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.NotFoundException('البريد الإلكتروني غير مسجل في النظام');
         }
-        this.databaseService.db
-            .prepare('UPDATE password_resets SET used = 1 WHERE email = ? AND used = 0')
-            .run(dto.email);
+        await this.databaseService.db.query('UPDATE password_resets SET used = 1 WHERE email = $1 AND used = 0', [dto.email]);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        this.databaseService.db
-            .prepare(`
-        INSERT INTO password_resets (email, code, expiresAt, used)
-        VALUES (?, ?, ?, 0)
-      `)
-            .run(dto.email, code, expiresAt);
+        await this.databaseService.db.query(`
+        INSERT INTO password_resets (email, code, "expiresAt", used)
+        VALUES ($1, $2, $3, 0)
+      `, [dto.email, code, expiresAt]);
         console.log(`🔑 [Password Reset OTP] User: ${user.name} (${user.email}), Role: ${user.role}, Code: ${code}`);
         return {
             message: `تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ ${user.name}`,
@@ -154,15 +144,14 @@ let AuthService = class AuthService {
         };
     }
     async verifyResetCode(dto) {
-        const record = this.databaseService.db
-            .prepare(`
-        SELECT id, email, code, expiresAt, used
+        const recordResult = await this.databaseService.db.query(`
+        SELECT id, email, code, "expiresAt", used
         FROM password_resets
-        WHERE email = ? AND code = ? AND used = 0
+        WHERE email = $1 AND code = $2 AND used = 0
         ORDER BY id DESC
         LIMIT 1
-      `)
-            .get(dto.email, dto.code);
+      `, [dto.email, dto.code]);
+        const record = recordResult.rows[0];
         if (!record) {
             throw new common_1.BadRequestException('كود التحقق غير صحيح أو تم استخدامه بالفعل');
         }
@@ -178,21 +167,19 @@ let AuthService = class AuthService {
         if (dto.newPassword !== dto.confirmPassword) {
             throw new common_1.BadRequestException('كلمة المرور الجديدة وتأكيد كلمة المرور غير متطابقين');
         }
-        const user = this.databaseService.db
-            .prepare('SELECT id, name, email FROM users WHERE email = ?')
-            .get(dto.email);
+        const userResult = await this.databaseService.db.query('SELECT id, name, email FROM users WHERE email = $1', [dto.email]);
+        const user = userResult.rows[0];
         if (!user) {
             throw new common_1.NotFoundException('البريد الإلكتروني غير مسجل في النظام');
         }
-        const record = this.databaseService.db
-            .prepare(`
-        SELECT id, email, code, expiresAt, used
+        const recordResult = await this.databaseService.db.query(`
+        SELECT id, email, code, "expiresAt", used
         FROM password_resets
-        WHERE email = ? AND code = ? AND used = 0
+        WHERE email = $1 AND code = $2 AND used = 0
         ORDER BY id DESC
         LIMIT 1
-      `)
-            .get(dto.email, dto.code);
+      `, [dto.email, dto.code]);
+        const record = recordResult.rows[0];
         if (!record) {
             throw new common_1.BadRequestException('كود التحقق غير صحيح أو تم استخدامه بالفعل');
         }
@@ -200,12 +187,8 @@ let AuthService = class AuthService {
             throw new common_1.BadRequestException('انتهت صلاحية كود التحقق. يرجى طلب كود جديد');
         }
         const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-        this.databaseService.db
-            .prepare("UPDATE users SET password = ?, updatedAt = datetime('now') WHERE id = ?")
-            .run(hashedPassword, user.id);
-        this.databaseService.db
-            .prepare('UPDATE password_resets SET used = 1 WHERE id = ?')
-            .run(record.id);
+        await this.databaseService.db.query('UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2', [hashedPassword, user.id]);
+        await this.databaseService.db.query('UPDATE password_resets SET used = 1 WHERE id = $1', [record.id]);
         return {
             message: 'تم تعيين كلمة المرور الجديدة بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة',
             userId: user.id,

@@ -21,24 +21,21 @@ export class TestCasesService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   // ── Helper: auto-generate testId ──────────────────────────────────
-  private generateTestId(): string {
-    const row = this.databaseService.db
-      .prepare('SELECT MAX(id) as maxId FROM test_cases')
-      .get() as { maxId: number | null };
+  private async generateTestId(): Promise<string> {
+    const result = await this.databaseService.db.query('SELECT MAX(id) as "maxId" FROM test_cases');
+    const row = result.rows[0] as { maxId: number | null };
 
-    const nextNum = (row.maxId || 0) + 1;
+    const nextNum = (Number(row.maxId) || 0) + 1;
     return `TC-${String(nextNum).padStart(4, '0')}`;
   }
 
   // ── POST /api/test-cases ─────────────────────────────────────────
   async create(dto: CreateTestCaseDto) {
     const db = this.databaseService.db;
-    const testId = dto.testId || this.generateTestId();
+    const testId = dto.testId || await this.generateTestId();
 
-    const existing = db
-      .prepare('SELECT id FROM test_cases WHERE testId = ?')
-      .get(testId);
-    if (existing) {
+    const existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1', [testId]);
+    if (existingResult.rows.length > 0) {
       throw new ConflictException(`Test case with ID "${testId}" already exists`);
     }
 
@@ -46,15 +43,16 @@ export class TestCasesService {
     const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
     const targetTesterId = dto.testerId ?? dto.userId ?? null;
 
-    const stmt = db.prepare(`
+    const stmt = `
       INSERT INTO test_cases (
-        testId, module, pageName, scenario, preConditions, steps,
-        expectedResult, actualResult, priority, status, notes,
-        executedAt, testerId, projectId
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+        "testId", module, "pageName", scenario, "preConditions", steps,
+        "expectedResult", "actualResult", priority, status, notes,
+        "executedAt", "testerId", "projectId"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id
+    `;
 
-    const result = stmt.run(
+    const result = await db.query(stmt, [
       testId,
       dto.module,
       dto.pageName || null,
@@ -69,9 +67,9 @@ export class TestCasesService {
       executedAt,
       targetTesterId,
       dto.projectId || null,
-    );
+    ]);
 
-    const newId = Number(result.lastInsertRowid);
+    const newId = result.rows[0].id;
     return this.findOne(newId);
   }
 
@@ -98,35 +96,39 @@ export class TestCasesService {
       params.push(`%${query.module}%`);
     }
     if (query.projectId) {
-      conditions.push('tc.projectId = ?');
+      conditions.push('tc."projectId" = ?');
       params.push(Number(query.projectId));
     }
     if (query.search) {
-      conditions.push('(tc.testId LIKE ? OR tc.module LIKE ? OR tc.scenario LIKE ?)');
+      conditions.push('(tc."testId" LIKE ? OR tc.module LIKE ? OR tc.scenario LIKE ?)');
       const s = `%${query.search}%`;
       params.push(s, s, s);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    let pidx = 1;
+    const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
+    const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
 
     const countSql = `SELECT COUNT(*) as total FROM test_cases tc ${whereClause}`;
-    const totalRow = db.prepare(countSql).get(...params) as { total: number };
-    const total = totalRow.total;
+    const totalResult = await db.query(countSql, params);
+    const total = Number(totalResult.rows[0].total);
 
+    const limitOffsetParams = [...params, limit, offset];
     const dataSql = `
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
-      LEFT JOIN users u ON tc.testerId = u.id
-      LEFT JOIN projects p ON tc.projectId = p.id
+      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
       ORDER BY tc.id DESC
-      LIMIT ? OFFSET ?
+      LIMIT $${pidx++} OFFSET $${pidx++}
     `;
 
-    const rows = db.prepare(dataSql).all(...params, limit, offset) as any[];
+    const rowsResult = await db.query(dataSql, limitOffsetParams);
+    const rows = rowsResult.rows;
 
     const formattedData = rows.map((r) => {
       const {
@@ -172,12 +174,13 @@ export class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
-      LEFT JOIN users u ON tc.testerId = u.id
-      LEFT JOIN projects p ON tc.projectId = p.id
-      WHERE tc.id = ?
+      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN projects p ON tc."projectId" = p.id
+      WHERE tc.id = $1
     `;
 
-    const row = db.prepare(sql).get(id) as any;
+    const result = await db.query(sql, [id]);
+    const row = result.rows[0];
     if (!row) {
       throw new NotFoundException(`Test case #${id} not found`);
     }
@@ -210,12 +213,13 @@ export class TestCasesService {
     const db = this.databaseService.db;
     await this.findOne(id); // Throws if not found
 
+    let pidx = 1;
     const fields: string[] = [];
     const values: any[] = [];
 
     const effectiveTesterId = dto.testerId ?? dto.userId;
     if (effectiveTesterId !== undefined) {
-      fields.push('testerId = ?');
+      fields.push(`"testerId" = $${pidx++}`);
       values.push(effectiveTesterId);
     }
 
@@ -227,21 +231,21 @@ export class TestCasesService {
 
     for (const key of allowed) {
       if ((dto as any)[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`"${key}" = $${pidx++}`);
         values.push((dto as any)[key]);
       }
     }
 
     if (dto.steps !== undefined) {
-      fields.push('steps = ?');
+      fields.push(`steps = $${pidx++}`);
       values.push(JSON.stringify(dto.steps));
     }
 
     if (fields.length > 0) {
-      fields.push("updatedAt = datetime('now')");
+      fields.push(`"updatedAt" = NOW()`);
       values.push(id);
-      const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = ?`;
-      db.prepare(sql).run(...values);
+      const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = $${pidx}`;
+      await db.query(sql, values);
     }
 
     return this.findOne(id);
@@ -251,7 +255,7 @@ export class TestCasesService {
   async remove(id: number) {
     const db = this.databaseService.db;
     await this.findOne(id);
-    db.prepare('DELETE FROM test_cases WHERE id = ?').run(id);
+    await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
     return { message: `Test case #${id} deleted successfully` };
   }
 }

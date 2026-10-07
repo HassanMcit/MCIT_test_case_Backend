@@ -21,7 +21,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.initTables();
-    await this.runMigrations();
+    // await this.runMigrations();
     await this.seedInitialData();
   }
 
@@ -105,14 +105,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     // Add profileImage column if it doesn't exist
     const hasProfileImage = columns.some((c: any) => c.column_name === 'profileimage');
     if (!hasProfileImage) {
-      await this.db.query(`ALTER TABLE users ADD COLUMN profileImage TEXT DEFAULT '${DEFAULT_PHOTO}'`);
+      await this.db.query(`ALTER TABLE users ADD COLUMN "profileImage" TEXT`);
       console.log('✅ Migration: Added profileImage column to users table');
     }
 
     // Add photo column if it doesn't exist
     const hasPhoto = columns.some((c: any) => c.column_name === 'photo');
     if (!hasPhoto) {
-      await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT DEFAULT '${DEFAULT_PHOTO}'`);
+      await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT`);
       console.log('✅ Migration: Added photo column to users table');
     }
 
@@ -135,6 +135,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'tester',
+          "profileImage" TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         photo TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP

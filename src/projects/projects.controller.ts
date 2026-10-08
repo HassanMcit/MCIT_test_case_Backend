@@ -7,6 +7,8 @@ import {
   Body,
   Param,
   Query,
+  Request,
+  ForbiddenException,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
@@ -30,31 +32,36 @@ export class ProjectsController {
 
   /**
    * POST /api/projects
-   * Create a new project
+   * Create a new project (Admin Only)
    */
   @Post()
-  @ApiOperation({ summary: 'Create a new project' })
+  @ApiOperation({ summary: 'Create a new project (Admin Only)' })
   @ApiResponse({ status: 201, description: 'Project created successfully' })
-  create(@Body() dto: CreateProjectDto) {
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
+  create(@Request() req: any, @Body() dto: CreateProjectDto) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. إنشاء المشاريع مخصص لمدير النظام (admin) فقط');
+    }
     return this.projectsService.create(dto);
   }
 
   /**
    * GET /api/projects
-   * List all projects with optional filters (environment, status, search)
+   * List projects with optional filters (Admin sees all, Tester sees assigned projects only)
    */
   @Get()
-  @ApiOperation({ summary: 'List all projects with live test-case stats' })
+  @ApiOperation({ summary: 'List projects (Admin sees all, Tester sees assigned only)' })
   @ApiQuery({ name: 'environment', required: false, example: 'production', description: 'Filter by environment: production | staging' })
   @ApiQuery({ name: 'status',      required: false, example: 'active',     description: 'Filter by status: active | archived' })
   @ApiQuery({ name: 'search',      required: false, example: 'portal',     description: 'Search in name or description' })
   @ApiResponse({ status: 200, description: 'Array of projects with test-case stats' })
   findAll(
+    @Request() req: any,
     @Query('environment') environment?: string,
     @Query('status')      status?: string,
     @Query('search')      search?: string,
   ) {
-    return this.projectsService.findAll({ environment, status, search });
+    return this.projectsService.findAll({ environment, status, search }, req.user);
   }
 
   /**
@@ -65,35 +72,44 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Get a project by ID (includes recent test cases)' })
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Project with recent test cases' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Not assigned to this project' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.projectsService.findOne(id);
+  findOne(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.projectsService.findOne(id, req.user);
   }
 
   /**
    * PATCH /api/projects/:id
-   * Partially update a project
+   * Partially update a project (Admin Only)
    */
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a project (partial)' })
+  @ApiOperation({ summary: 'Update a project (Admin Only)' })
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Project updated' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProjectDto) {
+  update(@Request() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProjectDto) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. تعديل المشاريع مخصص لمدير النظام (admin) فقط');
+    }
     return this.projectsService.update(id, dto);
   }
 
   /**
    * DELETE /api/projects/:id
-   * Delete a project
+   * Delete a project (Admin Only)
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a project' })
+  @ApiOperation({ summary: 'Delete a project (Admin Only)' })
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Project deleted' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admin access required' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('غير مصرح لك. حذف المشاريع مخصص لمدير النظام (admin) فقط');
+    }
     return this.projectsService.remove(id);
   }
 }

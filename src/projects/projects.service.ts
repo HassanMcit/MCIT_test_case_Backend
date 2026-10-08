@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
@@ -24,21 +24,30 @@ export class ProjectsService {
   }
 
   // ── GET /api/projects ────────────────────────────────────────────
-  async findAll(query: { environment?: string; status?: string; search?: string }) {
+  async findAll(query: { environment?: string; status?: string; search?: string }, currentUser?: any) {
     const db = this.databaseService.db;
     const conditions: string[] = [];
     const params: any[] = [];
 
+    // Role-based filtering:
+    // If user is NOT admin (e.g. tester), only return projects assigned to this user
+    let joinClause = '';
+    if (currentUser && currentUser.role !== 'admin') {
+      joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
+      conditions.push('pa."userId" = ?');
+      params.push(currentUser.id || currentUser.userId || currentUser.sub);
+    }
+
     if (query.environment) {
-      conditions.push('environment = ?');
+      conditions.push('p.environment = ?');
       params.push(query.environment);
     }
     if (query.status) {
-      conditions.push('status = ?');
+      conditions.push('p.status = ?');
       params.push(query.status);
     }
     if (query.search) {
-      conditions.push('(name LIKE ? OR description LIKE ?)');
+      conditions.push('(p.name LIKE ? OR p.description LIKE ?)');
       const s = `%${query.search}%`;
       params.push(s, s);
     }
@@ -46,7 +55,7 @@ export class ProjectsService {
     let pidx = 1;
     const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
     const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
-    const sql = `SELECT * FROM projects ${whereClause} ORDER BY id ASC`;
+    const sql = `SELECT DISTINCT p.* FROM projects p ${joinClause} ${whereClause} ORDER BY p.id ASC`;
     const projectsResult = await db.query(sql, params);
     const projects = projectsResult.rows;
 
@@ -84,7 +93,11 @@ export class ProjectsService {
       const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
       
       const assignedUsersResult = await db.query(assignedUsersSql, [p.id]);
-      const assignedUsers = assignedUsersResult.rows;
+      const assignedUsers = assignedUsersResult.rows.map((u: any) => ({
+        ...u,
+        photo: this.databaseService.resolvePhotoUrl(u),
+        profileImage: this.databaseService.resolvePhotoUrl(u),
+      }));
 
       return {
         ...p,
@@ -95,13 +108,23 @@ export class ProjectsService {
   }
 
   // ── GET /api/projects/:id ────────────────────────────────────────
-  async findOne(id: number) {
+  async findOne(id: number, currentUser?: any) {
     const db = this.databaseService.db;
     const projectResult = await db.query('SELECT * FROM projects WHERE id = $1', [id]);
     const project = projectResult.rows[0] as any;
 
     if (!project) {
       throw new NotFoundException(`Project #${id} not found`);
+    }
+
+    if (currentUser && currentUser.role !== 'admin') {
+      const checkResult = await db.query(
+        'SELECT 1 FROM project_assignments WHERE "projectId" = $1 AND "userId" = $2',
+        [id, currentUser.id || currentUser.userId || currentUser.sub]
+      );
+      if (checkResult.rows.length === 0) {
+        throw new ForbiddenException('غير مصرح لك بالوصول لهذا المشروع');
+      }
     }
 
     const assignedUsersResult = await db.query(`
@@ -111,7 +134,11 @@ export class ProjectsService {
       WHERE pa."projectId" = $1
       ORDER BY pa."assignedAt" DESC
     `, [id]);
-    const assignedUsers = assignedUsersResult.rows;
+    const assignedUsers = assignedUsersResult.rows.map((u: any) => ({
+      ...u,
+      photo: this.databaseService.resolvePhotoUrl(u),
+      profileImage: this.databaseService.resolvePhotoUrl(u),
+    }));
 
     const recentTestCasesResult = await db.query(`
       SELECT

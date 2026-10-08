@@ -198,18 +198,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const hassanResult = await this.db.query('SELECT id, photo, "profileImage" FROM users WHERE email = $1', ['h.ali@mcit.gov.eg']);
     const hassan = hassanResult.rows[0] as { id: number; photo?: string; profileImage?: string } | undefined;
 
-    if (!hassan || hassan.id !== 1) {
-      await this.db.query('TRUNCATE TABLE test_cases CASCADE;');
-      await this.db.query('TRUNCATE TABLE projects CASCADE;');
-      await this.db.query('TRUNCATE TABLE users CASCADE;');
-
+    if (!hassan) {
       await this.db.query(`
         INSERT INTO users (id, name, email, password, role, photo, "profileImage")
         VALUES (1, $1, $2, $3, $4, $5, $6)
+        ON CONFLICT (email) DO NOTHING
       `, ['Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', persistedPhoto, persistedPhoto]);
-      await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce(max(id),0) + 1, false) FROM users;`);
+      await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce((SELECT max(id) FROM users),0) + 1, false);`);
 
-      console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with persistent photo.');
+      console.log('✅ Default admin user Hassan Ali initialized.');
     } else {
       // PRESERVE the existing custom photo if set, otherwise use persisted/default
       const isDummy =

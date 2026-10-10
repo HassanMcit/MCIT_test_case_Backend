@@ -105,7 +105,8 @@ let AuthService = class AuthService {
         if (dto.oldPassword === dto.newPassword) {
             throw new common_1.BadRequestException('كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية');
         }
-        const userResult = await this.databaseService.db.query('SELECT id, password FROM users WHERE id = $1', [userId]);
+        const numericUserId = Number(userId);
+        const userResult = await this.databaseService.db.query('SELECT id, password FROM users WHERE id = $1', [numericUserId]);
         const user = userResult.rows[0];
         if (!user) {
             throw new common_1.UnauthorizedException('المستخدم غير موجود');
@@ -115,10 +116,10 @@ let AuthService = class AuthService {
             throw new common_1.BadRequestException('كلمة المرور الحالية غير صحيحة');
         }
         const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-        await this.databaseService.db.query('UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2', [hashedPassword, userId]);
+        await this.databaseService.db.query('UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2', [hashedPassword, numericUserId]);
         return {
             message: 'تم تغيير كلمة المرور بنجاح',
-            userId: userId,
+            userId: numericUserId,
         };
     }
     async forgotPassword(dto) {

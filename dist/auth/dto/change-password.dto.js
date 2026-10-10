@@ -20,9 +20,12 @@ __decorate([
         example: 'password123',
         description: 'كلمة المرور الحالية',
     }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^.{6,50}$/, {
-        message: 'كلمة المرور الحالية يجب أن تكون بين 6 إلى 50 حرفاً',
+    (0, class_validator_1.IsString)({ message: 'كلمة المرور الحالية يجب أن تكون نصاً' }),
+    (0, class_validator_1.MinLength)(6, {
+        message: 'كلمة المرور الحالية يجب أن تكون 6 أحرف على الأقل',
+    }),
+    (0, class_validator_1.MaxLength)(50, {
+        message: 'كلمة المرور الحالية لا يمكن أن تتجاوز 50 حرفاً',
     }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "oldPassword", void 0);
@@ -31,9 +34,12 @@ __decorate([
         example: 'newPassword123',
         description: 'كلمة المرور الجديدة',
     }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^.{6,50}$/, {
-        message: 'كلمة المرور الجديدة يجب أن تكون بين 6 إلى 50 حرفاً',
+    (0, class_validator_1.IsString)({ message: 'كلمة المرور الجديدة يجب أن تكون نصاً' }),
+    (0, class_validator_1.MinLength)(6, {
+        message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
+    }),
+    (0, class_validator_1.MaxLength)(50, {
+        message: 'كلمة المرور الجديدة لا يمكن أن تتجاوز 50 حرفاً',
     }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "newPassword", void 0);
@@ -42,9 +48,12 @@ __decorate([
         example: 'newPassword123',
         description: 'تأكيد كلمة المرور الجديدة',
     }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^.{6,50}$/, {
-        message: 'تأكيد كلمة المرور يجب أن يكون بين 6 إلى 50 حرفاً',
+    (0, class_validator_1.IsString)({ message: 'تأكيد كلمة المرور يجب أن يكون نصاً' }),
+    (0, class_validator_1.MinLength)(6, {
+        message: 'تأكيد كلمة المرور يجب أن يكون 6 أحرف على الأقل',
+    }),
+    (0, class_validator_1.MaxLength)(50, {
+        message: 'تأكيد كلمة المرور لا يمكن أن يتجاوز 50 حرفاً',
     }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "confirmPassword", void 0);

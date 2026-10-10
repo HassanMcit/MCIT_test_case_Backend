@@ -3,11 +3,11 @@ import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 export declare class ProjectsController {
     private readonly projectsService;
     constructor(projectsService: ProjectsService);
-    create(dto: CreateProjectDto): Promise<any>;
-    findAll(environment?: string, status?: string, search?: string): Promise<any[]>;
-    findOne(id: number): Promise<any>;
-    update(id: number, dto: UpdateProjectDto): Promise<any>;
-    remove(id: number): Promise<{
+    create(req: any, dto: CreateProjectDto): Promise<any>;
+    findAll(req: any, environment?: string, status?: string, search?: string, assignedToMe?: string, assignedToUserId?: string): Promise<any[]>;
+    findOne(req: any, id: number): Promise<any>;
+    update(req: any, id: number, dto: UpdateProjectDto): Promise<any>;
+    remove(req: any, id: number): Promise<{
         message: string;
     }>;
 }

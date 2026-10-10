@@ -24,15 +24,35 @@ export class ProjectsService {
   }
 
   // ── GET /api/projects ────────────────────────────────────────────
-  async findAll(query: { environment?: string; status?: string; search?: string }, currentUser?: any) {
+  async findAll(
+    query: {
+      environment?: string;
+      status?: string;
+      search?: string;
+      assignedToMe?: string | boolean;
+      assignedToUserId?: string | number;
+    },
+    currentUser?: any,
+  ) {
     const db = this.databaseService.db;
     const conditions: string[] = [];
     const params: any[] = [];
 
-    // Role-based filtering:
-    // If user is NOT admin (e.g. tester), only return projects assigned to this user
+    const isAssignedToMe =
+      query.assignedToMe === 'true' || query.assignedToMe === true;
+    const targetUserId = query.assignedToUserId
+      ? Number(query.assignedToUserId)
+      : null;
+
+    // Role-based filtering & assigned filters:
+    // If targetUserId is specified -> filter projects assigned to that user
+    // Else if isAssignedToMe is true OR user is NOT admin -> filter projects assigned to currentUser
     let joinClause = '';
-    if (currentUser && currentUser.role !== 'admin') {
+    if (targetUserId) {
+      joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
+      conditions.push('pa."userId" = ?');
+      params.push(targetUserId);
+    } else if (isAssignedToMe || (currentUser && currentUser.role !== 'admin')) {
       joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
       conditions.push('pa."userId" = ?');
       params.push(currentUser.id || currentUser.userId || currentUser.sub);

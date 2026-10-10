@@ -8,8 +8,10 @@ export declare class ProjectsService {
         environment?: string;
         status?: string;
         search?: string;
-    }): Promise<any[]>;
-    findOne(id: number): Promise<any>;
+        assignedToMe?: string | boolean;
+        assignedToUserId?: string | number;
+    }, currentUser?: any): Promise<any[]>;
+    findOne(id: number, currentUser?: any): Promise<any>;
     update(id: number, dto: UpdateProjectDto): Promise<any>;
     remove(id: number): Promise<{
         message: string;

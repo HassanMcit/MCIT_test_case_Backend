@@ -21,44 +21,60 @@ let ProjectsController = class ProjectsController {
     constructor(projectsService) {
         this.projectsService = projectsService;
     }
-    create(dto) {
+    create(req, dto) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('غير مصرح لك. إنشاء المشاريع مخصص لمدير النظام (admin) فقط');
+        }
         return this.projectsService.create(dto);
     }
-    findAll(environment, status, search) {
-        return this.projectsService.findAll({ environment, status, search });
+    findAll(req, environment, status, search, assignedToMe, assignedToUserId) {
+        return this.projectsService.findAll({ environment, status, search, assignedToMe, assignedToUserId }, req.user);
     }
-    findOne(id) {
-        return this.projectsService.findOne(id);
+    findOne(req, id) {
+        return this.projectsService.findOne(id, req.user);
     }
-    update(id, dto) {
+    update(req, id, dto) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('غير مصرح لك. تعديل المشاريع مخصص لمدير النظام (admin) فقط');
+        }
         return this.projectsService.update(id, dto);
     }
-    remove(id) {
+    remove(req, id) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('غير مصرح لك. حذف المشاريع مخصص لمدير النظام (admin) فقط');
+        }
         return this.projectsService.remove(id);
     }
 };
 exports.ProjectsController = ProjectsController;
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new project' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new project (Admin Only)' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Project created successfully' }),
-    __param(0, (0, common_1.Body)()),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [project_dto_1.CreateProjectDto]),
+    __metadata("design:paramtypes", [Object, project_dto_1.CreateProjectDto]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'List all projects with live test-case stats' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List projects (Admin sees all, Tester sees assigned only, or filter by assignedToMe / assignedToUserId)' }),
     (0, swagger_1.ApiQuery)({ name: 'environment', required: false, example: 'production', description: 'Filter by environment: production | staging' }),
     (0, swagger_1.ApiQuery)({ name: 'status', required: false, example: 'active', description: 'Filter by status: active | archived' }),
     (0, swagger_1.ApiQuery)({ name: 'search', required: false, example: 'portal', description: 'Search in name or description' }),
+    (0, swagger_1.ApiQuery)({ name: 'assignedToMe', required: false, example: true, description: 'Filter projects assigned to current user (even if admin)' }),
+    (0, swagger_1.ApiQuery)({ name: 'assignedToUserId', required: false, example: 1, description: 'Filter projects assigned to a specific user ID' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Array of projects with test-case stats' }),
-    __param(0, (0, common_1.Query)('environment')),
-    __param(1, (0, common_1.Query)('status')),
-    __param(2, (0, common_1.Query)('search')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('environment')),
+    __param(2, (0, common_1.Query)('status')),
+    __param(3, (0, common_1.Query)('search')),
+    __param(4, (0, common_1.Query)('assignedToMe')),
+    __param(5, (0, common_1.Query)('assignedToUserId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "findAll", null);
 __decorate([
@@ -66,34 +82,40 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Get a project by ID (includes recent test cases)' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Project with recent test cases' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Not assigned to this project' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Project not found' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Object, Number]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update a project (partial)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a project (Admin Only)' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Project updated' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Project not found' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, project_dto_1.UpdateProjectDto]),
+    __metadata("design:paramtypes", [Object, Number, project_dto_1.UpdateProjectDto]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a project' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a project (Admin Only)' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Project deleted' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Admin access required' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Project not found' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Object, Number]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "remove", null);
 exports.ProjectsController = ProjectsController = __decorate([

@@ -50,18 +50,25 @@ export class ProjectsController {
    * List projects with optional filters (Admin sees all, Tester sees assigned projects only)
    */
   @Get()
-  @ApiOperation({ summary: 'List projects (Admin sees all, Tester sees assigned only)' })
+  @ApiOperation({ summary: 'List projects (Admin sees all, Tester sees assigned only, or filter by assignedToMe / assignedToUserId)' })
   @ApiQuery({ name: 'environment', required: false, example: 'production', description: 'Filter by environment: production | staging' })
   @ApiQuery({ name: 'status',      required: false, example: 'active',     description: 'Filter by status: active | archived' })
   @ApiQuery({ name: 'search',      required: false, example: 'portal',     description: 'Search in name or description' })
+  @ApiQuery({ name: 'assignedToMe', required: false, example: true,        description: 'Filter projects assigned to current user (even if admin)' })
+  @ApiQuery({ name: 'assignedToUserId', required: false, example: 1,       description: 'Filter projects assigned to a specific user ID' })
   @ApiResponse({ status: 200, description: 'Array of projects with test-case stats' })
   findAll(
     @Request() req: any,
     @Query('environment') environment?: string,
     @Query('status')      status?: string,
     @Query('search')      search?: string,
+    @Query('assignedToMe') assignedToMe?: string,
+    @Query('assignedToUserId') assignedToUserId?: string,
   ) {
-    return this.projectsService.findAll({ environment, status, search }, req.user);
+    return this.projectsService.findAll(
+      { environment, status, search, assignedToMe, assignedToUserId },
+      req.user,
+    );
   }
 
   /**

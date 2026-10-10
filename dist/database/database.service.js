@@ -59,7 +59,6 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             console.error('❌ Failed to connect to PostgreSQL', err);
         }
         await this.initTables();
-        await this.runMigrations();
         await this.seedInitialData();
     }
     async onModuleDestroy() {
@@ -117,12 +116,12 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         const columns = columnsResult.rows;
         const hasProfileImage = columns.some((c) => c.column_name === 'profileimage');
         if (!hasProfileImage) {
-            await this.db.query(`ALTER TABLE users ADD COLUMN profileImage TEXT DEFAULT '${DEFAULT_PHOTO}'`);
+            await this.db.query(`ALTER TABLE users ADD COLUMN "profileImage" TEXT`);
             console.log('✅ Migration: Added profileImage column to users table');
         }
         const hasPhoto = columns.some((c) => c.column_name === 'photo');
         if (!hasPhoto) {
-            await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT DEFAULT '${DEFAULT_PHOTO}'`);
+            await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT`);
             console.log('✅ Migration: Added photo column to users table');
         }
         await this.db.query("UPDATE users SET photo = $1 WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'", [DEFAULT_PHOTO]);
@@ -136,6 +135,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'tester',
+          "profileImage" TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         photo TEXT DEFAULT 'https://pub-3cba56bacf9f4965bbb0989e07dada12.r2.dev/linkedPosts/default-profile.png',
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -194,16 +194,14 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         const persistedPhoto = this.getPersistedPhoto();
         const hassanResult = await this.db.query('SELECT id, photo, "profileImage" FROM users WHERE email = $1', ['h.ali@mcit.gov.eg']);
         const hassan = hassanResult.rows[0];
-        if (!hassan || hassan.id !== 1) {
-            await this.db.query('TRUNCATE TABLE test_cases CASCADE;');
-            await this.db.query('TRUNCATE TABLE projects CASCADE;');
-            await this.db.query('TRUNCATE TABLE users CASCADE;');
+        if (!hassan) {
             await this.db.query(`
         INSERT INTO users (id, name, email, password, role, photo, "profileImage")
         VALUES (1, $1, $2, $3, $4, $5, $6)
+        ON CONFLICT (email) DO NOTHING
       `, ['Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', persistedPhoto, persistedPhoto]);
-            await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce(max(id),0) + 1, false) FROM users;`);
-            console.log('✅ Database reset: Only Hassan Ali (id: 1, role: admin) is active with persistent photo.');
+            await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce((SELECT max(id) FROM users),0) + 1, false);`);
+            console.log('✅ Default admin user Hassan Ali initialized.');
         }
         else {
             const isDummy = hassan.photo &&

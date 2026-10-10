@@ -121,10 +121,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       "UPDATE users SET photo = $1 WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'",
       [DEFAULT_PHOTO]
     );
-    await this.db.query(
-      "UPDATE users SET profileImage = $1 WHERE profileImage IS NULL OR profileImage = '' OR profileImage LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'",
-      [DEFAULT_PHOTO]
-    );
+
+    // Ensure test_cases testId is scoped per project
+    await this.db.query('ALTER TABLE test_cases DROP CONSTRAINT IF EXISTS "test_cases_testId_key"');
+    await this.db.query('CREATE UNIQUE INDEX IF NOT EXISTS "test_cases_project_testid_idx" ON test_cases (COALESCE("projectId", 0), "testId")');
   }
 
   private async initTables() {
@@ -153,7 +153,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       CREATE TABLE IF NOT EXISTS test_cases (
         id SERIAL PRIMARY KEY,
-        "testId" TEXT UNIQUE NOT NULL,
+        "testId" TEXT NOT NULL,
         module TEXT NOT NULL,
         "pageName" TEXT,
         scenario TEXT NOT NULL,
@@ -170,6 +170,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS "test_cases_project_testid_idx" ON test_cases (COALESCE("projectId", 0), "testId");
 
       CREATE TABLE IF NOT EXISTS project_assignments (
         id SERIAL PRIMARY KEY,

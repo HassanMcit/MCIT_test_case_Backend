@@ -20,8 +20,9 @@ let DashboardController = class DashboardController {
     constructor(dashboardService) {
         this.dashboardService = dashboardService;
     }
-    getStats() {
-        return this.dashboardService.getStats();
+    getStats(req, queryUserId, queryRole) {
+        const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+        return this.dashboardService.getStats(user);
     }
     getChartData(days) {
         return this.dashboardService.getChartData(days ? Number(days) : 14);
@@ -48,8 +49,11 @@ __decorate([
             },
         },
     }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('userId')),
+    __param(2, (0, common_1.Query)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object, Number, String]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getStats", null);
 __decorate([

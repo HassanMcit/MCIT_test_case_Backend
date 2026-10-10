@@ -64,6 +64,7 @@ export class ProjectsController {
     @Query('search')      search?: string,
     @Query('assignedToMe') assignedToMe?: string,
     @Query('assignedToUserId') assignedToUserId?: string,
+    @Query('cacheUser') cacheUser?: string,
   ) {
     return this.projectsService.findAll(
       { environment, status, search, assignedToMe, assignedToUserId },

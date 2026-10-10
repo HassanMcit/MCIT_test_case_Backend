@@ -24,8 +24,12 @@ let TestCasesController = class TestCasesController {
     create(dto) {
         return this.testCasesService.create(dto);
     }
-    findAll(page, limit, status, priority, module, projectId, search) {
-        return this.testCasesService.findAll({ page, limit, status, priority, module, projectId, search });
+    findAll(req, page, limit, status, priority, module, projectId, search, queryUserId, queryUserRole) {
+        const user = req?.user || (queryUserId ? { id: Number(queryUserId), role: queryUserRole } : undefined);
+        return this.testCasesService.findAll({ page, limit, status, priority, module, projectId, search }, user);
+    }
+    getNextId(projectId, module) {
+        return this.testCasesService.getNextTestId(projectId ? Number(projectId) : undefined, module);
     }
     findOne(id) {
         return this.testCasesService.findOne(id);
@@ -59,17 +63,32 @@ __decorate([
     (0, swagger_1.ApiQuery)({ name: 'projectId', required: false, type: Number, example: 1, description: 'Filter by project ID' }),
     (0, swagger_1.ApiQuery)({ name: 'search', required: false, type: String, example: 'login', description: 'Search in testId, module, and scenario' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Paginated list of test cases' }),
-    __param(0, (0, common_1.Query)('page')),
-    __param(1, (0, common_1.Query)('limit')),
-    __param(2, (0, common_1.Query)('status')),
-    __param(3, (0, common_1.Query)('priority')),
-    __param(4, (0, common_1.Query)('module')),
-    __param(5, (0, common_1.Query)('projectId')),
-    __param(6, (0, common_1.Query)('search')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __param(3, (0, common_1.Query)('status')),
+    __param(4, (0, common_1.Query)('priority')),
+    __param(5, (0, common_1.Query)('module')),
+    __param(6, (0, common_1.Query)('projectId')),
+    __param(7, (0, common_1.Query)('search')),
+    __param(8, (0, common_1.Query)('userId')),
+    __param(9, (0, common_1.Query)('userRole')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, String, String, String, Number, String]),
+    __metadata("design:paramtypes", [Object, Number, Number, String, String, String, Number, String, Number, String]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('next-id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get next auto-increment testId for a project or module' }),
+    (0, swagger_1.ApiQuery)({ name: 'projectId', required: false, type: Number, description: 'Project ID' }),
+    (0, swagger_1.ApiQuery)({ name: 'module', required: false, type: String, description: 'Module / Project name' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Next testId generated' }),
+    __param(0, (0, common_1.Query)('projectId')),
+    __param(1, (0, common_1.Query)('module')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, String]),
+    __metadata("design:returntype", void 0)
+], TestCasesController.prototype, "getNextId", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get a single test case by ID' }),

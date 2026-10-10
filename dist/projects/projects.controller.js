@@ -27,7 +27,7 @@ let ProjectsController = class ProjectsController {
         }
         return this.projectsService.create(dto);
     }
-    findAll(req, environment, status, search, assignedToMe, assignedToUserId) {
+    findAll(req, environment, status, search, assignedToMe, assignedToUserId, cacheUser) {
         return this.projectsService.findAll({ environment, status, search, assignedToMe, assignedToUserId }, req.user);
     }
     findOne(req, id) {
@@ -73,8 +73,9 @@ __decorate([
     __param(3, (0, common_1.Query)('search')),
     __param(4, (0, common_1.Query)('assignedToMe')),
     __param(5, (0, common_1.Query)('assignedToUserId')),
+    __param(6, (0, common_1.Query)('cacheUser')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ProjectsController.prototype, "findAll", null);
 __decorate([

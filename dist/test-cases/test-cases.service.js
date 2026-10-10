@@ -16,18 +16,49 @@ let TestCasesService = class TestCasesService {
     constructor(databaseService) {
         this.databaseService = databaseService;
     }
-    async generateTestId() {
-        const result = await this.databaseService.db.query('SELECT MAX(id) as "maxId" FROM test_cases');
-        const row = result.rows[0];
-        const nextNum = (Number(row.maxId) || 0) + 1;
-        return `TC-${String(nextNum).padStart(4, '0')}`;
+    async generateTestId(projectId, module) {
+        const db = this.databaseService.db;
+        let result;
+        if (projectId) {
+            result = await db.query('SELECT "testId" FROM test_cases WHERE "projectId" = $1', [projectId]);
+        }
+        else if (module) {
+            result = await db.query('SELECT "testId" FROM test_cases WHERE LOWER(TRIM(module)) = LOWER(TRIM($1))', [module]);
+        }
+        else {
+            result = await db.query('SELECT "testId" FROM test_cases');
+        }
+        let maxNum = 0;
+        for (const r of result.rows) {
+            const match = (r.testId || '').match(/(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum)
+                    maxNum = num;
+            }
+        }
+        return `TC-${String(maxNum + 1).padStart(4, '0')}`;
+    }
+    async getNextTestId(projectId, module) {
+        const nextId = await this.generateTestId(projectId, module);
+        return { nextId };
     }
     async create(dto) {
         const db = this.databaseService.db;
-        const testId = dto.testId || await this.generateTestId();
-        const existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1', [testId]);
+        const targetProjectId = dto.projectId || null;
+        const testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
+        let existingResult;
+        if (targetProjectId) {
+            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" = $2', [testId, targetProjectId]);
+        }
+        else if (dto.module) {
+            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND LOWER(TRIM(module)) = LOWER(TRIM($2))', [testId, dto.module]);
+        }
+        else {
+            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" IS NULL', [testId]);
+        }
         if (existingResult.rows.length > 0) {
-            throw new common_1.ConflictException(`Test case with ID "${testId}" already exists`);
+            throw new common_1.ConflictException(`حالة الاختبار برقم "${testId}" موجودة مسبقاً في هذا المشروع`);
         }
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
@@ -59,13 +90,22 @@ let TestCasesService = class TestCasesService {
         const newId = result.rows[0].id;
         return this.findOne(newId);
     }
-    async findAll(query) {
+    async findAll(query, currentUser) {
         const db = this.databaseService.db;
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 10;
         const offset = (page - 1) * limit;
         const conditions = [];
         const params = [];
+        if (currentUser && currentUser.role !== 'admin') {
+            const currentUserId = Number(currentUser.id || currentUser.userId || currentUser.sub);
+            conditions.push(`(
+        (tc."projectId" IS NOT NULL AND tc."projectId" IN (SELECT pa."projectId" FROM project_assignments pa WHERE pa."userId" = ?))
+        OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p INNER JOIN project_assignments pa ON p.id = pa."projectId" WHERE pa."userId" = ?))
+        OR tc."testerId" = ?
+      )`);
+            params.push(currentUserId, currentUserId, currentUserId);
+        }
         if (query.status) {
             conditions.push('tc.status = ?');
             params.push(query.status);
@@ -103,7 +143,7 @@ let TestCasesService = class TestCasesService {
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
-      ORDER BY tc.id DESC
+      ORDER BY tc."testId" ASC, tc.id ASC
       LIMIT $${pidx++} OFFSET $${pidx++}
     `;
         const rowsResult = await db.query(dataSql, limitOffsetParams);

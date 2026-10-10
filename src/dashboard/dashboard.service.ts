@@ -6,31 +6,75 @@ export class DashboardService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   // ── GET /api/dashboard/stats ─────────────────────────────────────
-  async getStats() {
+  async getStats(currentUser?: any) {
     const db = this.databaseService.db;
+    const userId = currentUser?.id || currentUser?.userId || currentUser?.sub;
+    const isAdmin = currentUser?.role === 'admin';
 
-    const totalRow = await db.query('SELECT COUNT(*) as count FROM test_cases');
-    const passedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'passed'");
-    const failedRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'failed'");
-    const pendingRow = await db.query("SELECT COUNT(*) as count FROM test_cases WHERE status = 'pending'");
-    const projectRow = await db.query('SELECT COUNT(*) as count FROM projects');
+    if (isAdmin || !userId) {
+      // Admin sees stats across ALL projects and test cases
+      const row = await db.query(`
+        SELECT
+          COUNT(*) as total,
+          COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
+          COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+          COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
+        FROM test_cases
+      `);
+      const projectRow = await db.query('SELECT COUNT(*) as count FROM projects');
 
-    const total = Number(totalRow.rows[0].count);
-    const passed = Number(passedRow.rows[0].count);
-    const failed = Number(failedRow.rows[0].count);
-    const pending = Number(pendingRow.rows[0].count);
-    const totalProjects = Number(projectRow.rows[0].count);
+      const total = Number(row.rows[0]?.total || 0);
+      const passed = Number(row.rows[0]?.passed || 0);
+      const failed = Number(row.rows[0]?.failed || 0);
+      const pending = Number(row.rows[0]?.pending || 0);
+      const totalProjects = Number(projectRow.rows[0]?.count || 0);
+      const passRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
-    const passRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+      return {
+        total,
+        passed,
+        failed,
+        pending,
+        passRate,
+        totalProjects,
+      };
+    } else {
+      // Tester sees stats ONLY for assigned projects
+      const row = await db.query(`
+        SELECT
+          COUNT(DISTINCT tc.id) as total,
+          COUNT(DISTINCT CASE WHEN tc.status = 'passed' THEN tc.id END) as passed,
+          COUNT(DISTINCT CASE WHEN tc.status = 'failed' THEN tc.id END) as failed,
+          COUNT(DISTINCT CASE WHEN tc.status != 'passed' AND tc.status != 'failed' THEN tc.id END) as pending
+        FROM test_cases tc
+        INNER JOIN project_assignments pa ON (
+          (tc."projectId" IS NOT NULL AND tc."projectId" = pa."projectId")
+          OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = pa."projectId"))
+        )
+        WHERE pa."userId" = $1
+      `, [Number(userId)]);
 
-    return {
-      total,
-      passed,
-      failed,
-      pending,
-      passRate,
-      totalProjects,
-    };
+      const projectRow = await db.query(
+        'SELECT COUNT(*) as count FROM project_assignments WHERE "userId" = $1',
+        [Number(userId)]
+      );
+
+      const total = Number(row.rows[0]?.total || 0);
+      const passed = Number(row.rows[0]?.passed || 0);
+      const failed = Number(row.rows[0]?.failed || 0);
+      const pending = Number(row.rows[0]?.pending || 0);
+      const totalProjects = Number(projectRow.rows[0]?.count || 0);
+      const passRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+
+      return {
+        total,
+        passed,
+        failed,
+        pending,
+        passRate,
+        totalProjects,
+      };
+    }
   }
 
   // ── GET /api/dashboard/chart ─────────────────────────────────────

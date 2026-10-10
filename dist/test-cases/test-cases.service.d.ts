@@ -12,9 +12,12 @@ interface QueryFilter {
 export declare class TestCasesService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
-    private generateTestId;
+    generateTestId(projectId?: number, module?: string): Promise<string>;
+    getNextTestId(projectId?: number, module?: string): Promise<{
+        nextId: string;
+    }>;
     create(dto: CreateTestCaseDto): Promise<any>;
-    findAll(query: QueryFilter): Promise<{
+    findAll(query: QueryFilter, currentUser?: any): Promise<{
         data: any[];
         meta: {
             total: number;

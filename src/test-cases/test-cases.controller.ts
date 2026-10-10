@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Request,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
@@ -55,6 +56,7 @@ export class TestCasesController {
   @ApiQuery({ name: 'search',    required: false, type: String,  example: 'login',    description: 'Search in testId, module, and scenario' })
   @ApiResponse({ status: 200, description: 'Paginated list of test cases' })
   findAll(
+    @Request()          req: any,
     @Query('page')      page?: number,
     @Query('limit')     limit?: number,
     @Query('status')    status?: string,
@@ -62,8 +64,30 @@ export class TestCasesController {
     @Query('module')    module?: string,
     @Query('projectId') projectId?: number,
     @Query('search')    search?: string,
+    @Query('userId')    queryUserId?: number,
+    @Query('userRole')  queryUserRole?: string,
   ) {
-    return this.testCasesService.findAll({ page, limit, status, priority, module, projectId, search });
+    const user = req?.user || (queryUserId ? { id: Number(queryUserId), role: queryUserRole } : undefined);
+    return this.testCasesService.findAll(
+      { page, limit, status, priority, module, projectId, search },
+      user,
+    );
+  }
+
+  /**
+   * GET /api/test-cases/next-id
+   * Get next auto-increment testId for a project or module
+   */
+  @Get('next-id')
+  @ApiOperation({ summary: 'Get next auto-increment testId for a project or module' })
+  @ApiQuery({ name: 'projectId', required: false, type: Number, description: 'Project ID' })
+  @ApiQuery({ name: 'module', required: false, type: String, description: 'Module / Project name' })
+  @ApiResponse({ status: 200, description: 'Next testId generated' })
+  getNextId(
+    @Query('projectId') projectId?: number,
+    @Query('module') module?: string,
+  ) {
+    return this.testCasesService.getNextTestId(projectId ? Number(projectId) : undefined, module);
   }
 
   /**

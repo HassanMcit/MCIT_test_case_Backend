@@ -55,7 +55,7 @@ export class ProjectsService {
     } else if (isAssignedToMe || (currentUser && currentUser.role !== 'admin')) {
       joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
       conditions.push('pa."userId" = ?');
-      params.push(currentUser.id || currentUser.userId || currentUser.sub);
+      params.push(Number(currentUser.id || currentUser.userId || currentUser.sub));
     }
 
     if (query.environment) {
@@ -240,7 +240,9 @@ export class ProjectsService {
   async remove(id: number) {
     const db = this.databaseService.db;
     await this.findOne(id);
+    await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [id]);
+    await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
     await db.query('DELETE FROM projects WHERE id = $1', [id]);
-    return { message: `Project #${id} deleted successfully` };
+    return { message: `تم حذف المشروع رقم #${id} بنجاح` };
   }
 }

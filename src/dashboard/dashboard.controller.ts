@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 
@@ -28,8 +28,13 @@ export class DashboardController {
       },
     },
   })
-  getStats() {
-    return this.dashboardService.getStats();
+  getStats(
+    @Request() req: any,
+    @Query('userId') queryUserId?: number,
+    @Query('role') queryRole?: string,
+  ) {
+    const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+    return this.dashboardService.getStats(user);
   }
 
   /**

@@ -2,7 +2,7 @@ import { DatabaseService } from '../database/database.service';
 export declare class DashboardService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
-    getStats(): Promise<{
+    getStats(currentUser?: any): Promise<{
         total: number;
         passed: number;
         failed: number;

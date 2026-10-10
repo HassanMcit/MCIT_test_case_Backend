@@ -217,10 +217,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           ? hassan.photo
           : persistedPhoto;
       await this.db.query(
-        'UPDATE users SET password = $1, photo = $2, "profileImage" = COALESCE("profileImage", $3) WHERE id = $4',
-        [defaultPassword, currentPhoto, currentPhoto, hassan.id]
+        'UPDATE users SET photo = $1, "profileImage" = COALESCE("profileImage", $2) WHERE id = $3',
+        [currentPhoto, currentPhoto, hassan.id]
       );
-      console.log('✅ Password updated for Hassan Ali (id: 1) - photo preserved.');
+      console.log('✅ Hassan Ali (id: 1) exists - password and settings preserved.');
     }
   }
 }

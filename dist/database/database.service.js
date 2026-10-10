@@ -209,8 +209,8 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             const currentPhoto = !isDummy && hassan.photo && hassan.photo.trim() !== ''
                 ? hassan.photo
                 : persistedPhoto;
-            await this.db.query('UPDATE users SET password = $1, photo = $2, "profileImage" = COALESCE("profileImage", $3) WHERE id = $4', [defaultPassword, currentPhoto, currentPhoto, hassan.id]);
-            console.log('✅ Password updated for Hassan Ali (id: 1) - photo preserved.');
+            await this.db.query('UPDATE users SET photo = $1, "profileImage" = COALESCE("profileImage", $2) WHERE id = $3', [currentPhoto, currentPhoto, hassan.id]);
+            console.log('✅ Hassan Ali (id: 1) exists - password and settings preserved.');
         }
     }
 };

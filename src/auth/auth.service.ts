@@ -107,9 +107,10 @@ export class AuthService {
       throw new BadRequestException('كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية');
     }
 
+    const numericUserId = Number(userId);
     const userResult = await this.databaseService.db.query(
       'SELECT id, password FROM users WHERE id = $1',
-      [userId]
+      [numericUserId]
     );
     const user = userResult.rows[0] as { id: number; password: string } | undefined;
 
@@ -125,12 +126,12 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     await this.databaseService.db.query(
       'UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2',
-      [hashedPassword, userId]
+      [hashedPassword, numericUserId]
     );
 
     return {
       message: 'تم تغيير كلمة المرور بنجاح',
-      userId: userId,
+      userId: numericUserId,
     };
   }
 

@@ -1,4 +1,4 @@
-import { IsString, Matches } from 'class-validator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ChangePasswordDto {
@@ -6,9 +6,12 @@ export class ChangePasswordDto {
     example: 'password123',
     description: 'كلمة المرور الحالية',
   })
-  @IsString()
-  @Matches(/^.{6,50}$/, {
-    message: 'كلمة المرور الحالية يجب أن تكون بين 6 إلى 50 حرفاً',
+  @IsString({ message: 'كلمة المرور الحالية يجب أن تكون نصاً' })
+  @MinLength(6, {
+    message: 'كلمة المرور الحالية يجب أن تكون 6 أحرف على الأقل',
+  })
+  @MaxLength(50, {
+    message: 'كلمة المرور الحالية لا يمكن أن تتجاوز 50 حرفاً',
   })
   oldPassword: string;
 
@@ -16,9 +19,12 @@ export class ChangePasswordDto {
     example: 'newPassword123',
     description: 'كلمة المرور الجديدة',
   })
-  @IsString()
-  @Matches(/^.{6,50}$/, {
-    message: 'كلمة المرور الجديدة يجب أن تكون بين 6 إلى 50 حرفاً',
+  @IsString({ message: 'كلمة المرور الجديدة يجب أن تكون نصاً' })
+  @MinLength(6, {
+    message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
+  })
+  @MaxLength(50, {
+    message: 'كلمة المرور الجديدة لا يمكن أن تتجاوز 50 حرفاً',
   })
   newPassword: string;
 
@@ -26,9 +32,12 @@ export class ChangePasswordDto {
     example: 'newPassword123',
     description: 'تأكيد كلمة المرور الجديدة',
   })
-  @IsString()
-  @Matches(/^.{6,50}$/, {
-    message: 'تأكيد كلمة المرور يجب أن يكون بين 6 إلى 50 حرفاً',
+  @IsString({ message: 'تأكيد كلمة المرور يجب أن يكون نصاً' })
+  @MinLength(6, {
+    message: 'تأكيد كلمة المرور يجب أن يكون 6 أحرف على الأقل',
+  })
+  @MaxLength(50, {
+    message: 'تأكيد كلمة المرور لا يمكن أن يتجاوز 50 حرفاً',
   })
   confirmPassword: string;
 }

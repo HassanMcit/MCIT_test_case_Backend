@@ -20,6 +20,7 @@ export declare class CreateTestCaseDto {
     actualResult?: string;
     priority?: Priority;
     status?: Status;
+    severity?: string;
     notes?: string;
     executedAt?: string;
     testerId?: number;

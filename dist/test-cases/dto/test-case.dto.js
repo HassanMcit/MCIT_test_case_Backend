@@ -31,12 +31,12 @@ exports.CreateTestCaseDto = CreateTestCaseDto;
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: 'TC-8492',
-        description: 'Custom test ID matching TC-XXXX (validated with Regex)',
+        description: 'Custom test ID matching TC-XXXX or BUG-XXXX (validated with Regex)',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^TC-\d{4,}$/, {
-        message: 'يجب أن يطابق معرّف الاختبار النمط TC-XXXX (مثل TC-8492)',
+    (0, class_validator_1.Matches)(/^(TC|BUG)-\d{4,}$/, {
+        message: 'يجب أن يطابق معرّف الاختبار النمط TC-XXXX أو BUG-XXXX (مثل TC-8492 أو BUG-8492)',
     }),
     __metadata("design:type", String)
 ], CreateTestCaseDto.prototype, "testId", void 0);
@@ -120,6 +120,18 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], CreateTestCaseDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'medium',
+        description: 'Defect severity level (critical | high | medium | low)',
+        enum: ['critical', 'high', 'medium', 'low'],
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(/^(critical|high|medium|low)$/, {
+        message: 'درجة الخطورة يجب أن تكون إما: critical أو high أو medium أو low',
+    }),
+    __metadata("design:type", String)
+], CreateTestCaseDto.prototype, "severity", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Intermittent on mobile' }),
     (0, class_validator_1.IsOptional)(),

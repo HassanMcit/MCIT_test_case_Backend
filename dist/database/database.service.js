@@ -164,6 +164,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         "actualResult" TEXT,
         priority TEXT DEFAULT 'medium',
         status TEXT DEFAULT 'pending',
+        severity TEXT DEFAULT NULL,
         notes TEXT,
         "executedAt" TIMESTAMP,
         "testerId" INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -191,6 +192,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+        await this.db.query('ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS severity TEXT DEFAULT NULL;');
     }
     async seedInitialData() {
         const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);

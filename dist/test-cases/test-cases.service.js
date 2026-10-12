@@ -63,12 +63,13 @@ let TestCasesService = class TestCasesService {
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
         const targetTesterId = dto.testerId ?? dto.userId ?? null;
+        const severity = dto.severity || (dto.status === 'failed' ? 'medium' : null);
         const stmt = `
       INSERT INTO test_cases (
         "testId", module, "pageName", scenario, "preConditions", steps,
-        "expectedResult", "actualResult", priority, status, notes,
+        "expectedResult", "actualResult", priority, status, severity, notes,
         "executedAt", "testerId", "projectId"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id
     `;
         const result = await db.query(stmt, [
@@ -82,6 +83,7 @@ let TestCasesService = class TestCasesService {
             dto.actualResult || null,
             dto.priority || 'medium',
             dto.status || 'pending',
+            severity,
             dto.notes || null,
             executedAt,
             targetTesterId,
@@ -222,8 +224,8 @@ let TestCasesService = class TestCasesService {
             values.push(effectiveTesterId);
         }
         const allowed = [
-            'module', 'pageName', 'scenario', 'preConditions',
-            'expectedResult', 'actualResult', 'priority', 'status',
+            'testId', 'module', 'pageName', 'scenario', 'preConditions',
+            'expectedResult', 'actualResult', 'priority', 'status', 'severity',
             'notes', 'executedAt', 'projectId'
         ];
         for (const key of allowed) {

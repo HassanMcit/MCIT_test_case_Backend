@@ -24,14 +24,14 @@ export enum Status {
 export class CreateTestCaseDto {
   @ApiPropertyOptional({
     example: 'TC-8492',
-    description: 'Custom test ID matching TC-XXXX (validated with Regex)',
+    description: 'Custom test ID matching TC-XXXX or BUG-XXXX (validated with Regex)',
   })
   @IsOptional()
   @IsString()
   @Matches(
-    /^TC-\d{4,}$/,
+    /^(TC|BUG)-\d{4,}$/,
     {
-      message: 'يجب أن يطابق معرّف الاختبار النمط TC-XXXX (مثل TC-8492)',
+      message: 'يجب أن يطابق معرّف الاختبار النمط TC-XXXX أو BUG-XXXX (مثل TC-8492 أو BUG-8492)',
     },
   )
   testId?: string;
@@ -115,6 +115,20 @@ export class CreateTestCaseDto {
     },
   )
   status?: Status;
+
+  @ApiPropertyOptional({
+    example: 'medium',
+    description: 'Defect severity level (critical | high | medium | low)',
+    enum: ['critical', 'high', 'medium', 'low'],
+  })
+  @IsOptional()
+  @Matches(
+    /^(critical|high|medium|low)$/,
+    {
+      message: 'درجة الخطورة يجب أن تكون إما: critical أو high أو medium أو low',
+    },
+  )
+  severity?: string;
 
   @ApiPropertyOptional({ example: 'Intermittent on mobile' })
   @IsOptional()

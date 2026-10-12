@@ -163,6 +163,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         "actualResult" TEXT,
         priority TEXT DEFAULT 'medium',
         status TEXT DEFAULT 'pending',
+        severity TEXT DEFAULT NULL,
         notes TEXT,
         "executedAt" TIMESTAMP,
         "testerId" INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -190,6 +191,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await this.db.query('ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS severity TEXT DEFAULT NULL;');
   }
 
   private async seedInitialData() {

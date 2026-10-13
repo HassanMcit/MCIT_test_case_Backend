@@ -20,6 +20,9 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([
                 passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
                 (req) => {
+                    if (req?.query?.token && typeof req.query.token === 'string') {
+                        return req.query.token;
+                    }
                     const auth = req?.headers?.authorization;
                     if (!auth)
                         return null;

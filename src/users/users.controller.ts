@@ -14,7 +14,9 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
+  Sse,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import {
   ApiTags,
   ApiOperation,
@@ -134,6 +136,17 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Notifications and unread count' })
   getNotifications(@Request() req: any) {
     return this.usersService.getNotifications(req.user.id);
+  }
+
+  /**
+   * GET /api/users/notifications/stream
+   * Stream real-time notifications via Server-Sent Events (SSE)
+   */
+  @Sse('notifications/stream')
+  @ApiOperation({ summary: 'Stream real-time notifications via SSE' })
+  streamNotifications(@Request() req: any): Observable<{ data: string }> {
+    const userId = Number(req.user?.id || req.user?.sub || 0);
+    return this.usersService.getNotificationStream(userId);
   }
 
   /**

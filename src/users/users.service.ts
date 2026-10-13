@@ -8,6 +8,8 @@ import {
 import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Subject, Observable } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
@@ -16,6 +18,38 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 @Injectable()
 export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  private readonly notificationEvents$ = new Subject<{
+    id?: number;
+    userId: number;
+    title: string;
+    message: string;
+    projectId?: number | null;
+    createdAt?: string;
+  }>();
+
+  getNotificationStream(userId: number): Observable<{ data: string }> {
+    return new Observable<{ data: string }>((subscriber) => {
+      // Immediate handshake
+      subscriber.next({ data: JSON.stringify({ type: 'CONNECTED', userId }) });
+
+      const sub = this.notificationEvents$
+        .pipe(filter((evt) => evt.userId === userId || evt.userId === 0))
+        .subscribe((evt) => {
+          subscriber.next({ data: JSON.stringify({ type: 'NOTIFICATION', payload: evt }) });
+        });
+
+      // Keep alive every 25 seconds
+      const timer = setInterval(() => {
+        subscriber.next({ data: JSON.stringify({ type: 'PING' }) });
+      }, 25000);
+
+      return () => {
+        sub.unsubscribe();
+        clearInterval(timer);
+      };
+    });
+  }
 
   async serveUserPhoto(userId: number, res: any) {
     const db = this.databaseService.db;
@@ -458,15 +492,27 @@ export class UsersService {
 
     // Insert notification for the user
     try {
-      await db.query(`
+      const notifRes = await db.query(`
         INSERT INTO notifications ("userId", title, message, "projectId", "read", "createdAt")
         VALUES ($1, $2, $3, $4, FALSE, NOW())
+        RETURNING id, "createdAt"
       `, [
         userId,
         `إسناد مشروع جديد: ${project.name}`,
         `تم إسناد مشروع "${project.name}" إليك لمتابعة حالات الاختبار وضمان جودة المنظومة.`,
         project.id,
       ]);
+
+      const inserted = notifRes.rows[0];
+      // Immediately emit SSE real-time event
+      this.notificationEvents$.next({
+        id: inserted?.id,
+        userId: userId,
+        title: `إسناد مشروع جديد: ${project.name}`,
+        message: `تم إسناد مشروع "${project.name}" إليك لمتابعة حالات الاختبار وضمان جودة المنظومة.`,
+        projectId: project.id,
+        createdAt: inserted?.createdAt ? new Date(inserted.createdAt).toISOString() : new Date().toISOString(),
+      });
     } catch (notifErr) {
       console.error('Error creating notification on assignment:', notifErr);
     }

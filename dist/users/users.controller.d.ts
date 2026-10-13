@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
@@ -51,6 +52,9 @@ export declare class UsersController {
     getNotifications(req: any): Promise<{
         notifications: any[];
         unreadCount: number;
+    }>;
+    streamNotifications(req: any): Observable<{
+        data: string;
     }>;
     markAllNotificationsRead(req: any): Promise<{
         success: boolean;

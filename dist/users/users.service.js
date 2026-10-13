@@ -47,10 +47,30 @@ const common_1 = require("@nestjs/common");
 const bcrypt = __importStar(require("bcryptjs"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const rxjs_1 = require("rxjs");
+const operators_1 = require("rxjs/operators");
 const database_service_1 = require("../database/database.service");
 let UsersService = class UsersService {
     constructor(databaseService) {
         this.databaseService = databaseService;
+        this.notificationEvents$ = new rxjs_1.Subject();
+    }
+    getNotificationStream(userId) {
+        return new rxjs_1.Observable((subscriber) => {
+            subscriber.next({ data: JSON.stringify({ type: 'CONNECTED', userId }) });
+            const sub = this.notificationEvents$
+                .pipe((0, operators_1.filter)((evt) => evt.userId === userId || evt.userId === 0))
+                .subscribe((evt) => {
+                subscriber.next({ data: JSON.stringify({ type: 'NOTIFICATION', payload: evt }) });
+            });
+            const timer = setInterval(() => {
+                subscriber.next({ data: JSON.stringify({ type: 'PING' }) });
+            }, 25000);
+            return () => {
+                sub.unsubscribe();
+                clearInterval(timer);
+            };
+        });
     }
     async serveUserPhoto(userId, res) {
         const db = this.databaseService.db;
@@ -416,15 +436,25 @@ let UsersService = class UsersService {
       VALUES ($1, $2)
     `, [userId, dto.projectId]);
         try {
-            await db.query(`
+            const notifRes = await db.query(`
         INSERT INTO notifications ("userId", title, message, "projectId", "read", "createdAt")
         VALUES ($1, $2, $3, $4, FALSE, NOW())
+        RETURNING id, "createdAt"
       `, [
                 userId,
                 `إسناد مشروع جديد: ${project.name}`,
                 `تم إسناد مشروع "${project.name}" إليك لمتابعة حالات الاختبار وضمان جودة المنظومة.`,
                 project.id,
             ]);
+            const inserted = notifRes.rows[0];
+            this.notificationEvents$.next({
+                id: inserted?.id,
+                userId: userId,
+                title: `إسناد مشروع جديد: ${project.name}`,
+                message: `تم إسناد مشروع "${project.name}" إليك لمتابعة حالات الاختبار وضمان جودة المنظومة.`,
+                projectId: project.id,
+                createdAt: inserted?.createdAt ? new Date(inserted.createdAt).toISOString() : new Date().toISOString(),
+            });
         }
         catch (notifErr) {
             console.error('Error creating notification on assignment:', notifErr);

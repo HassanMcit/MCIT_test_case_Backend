@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
@@ -5,6 +6,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 export declare class UsersService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
+    private readonly notificationEvents$;
+    getNotificationStream(userId: number): Observable<{
+        data: string;
+    }>;
     serveUserPhoto(userId: number, res: any): Promise<any>;
     create(dto: CreateUserDto, req?: any): Promise<{
         id: any;

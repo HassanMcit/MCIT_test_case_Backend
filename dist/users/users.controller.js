@@ -47,6 +47,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
+const rxjs_1 = require("rxjs");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
@@ -103,6 +104,10 @@ let UsersController = class UsersController {
     }
     getNotifications(req) {
         return this.usersService.getNotifications(req.user.id);
+    }
+    streamNotifications(req) {
+        const userId = Number(req.user?.id || req.user?.sub || 0);
+        return this.usersService.getNotificationStream(userId);
     }
     markAllNotificationsRead(req) {
         return this.usersService.markAllNotificationsRead(req.user.id);
@@ -216,6 +221,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "getNotifications", null);
+__decorate([
+    (0, common_1.Sse)('notifications/stream'),
+    (0, swagger_1.ApiOperation)({ summary: 'Stream real-time notifications via SSE' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", rxjs_1.Observable)
+], UsersController.prototype, "streamNotifications", null);
 __decorate([
     (0, common_1.Patch)('notifications/read-all'),
     (0, swagger_1.ApiOperation)({ summary: 'Mark all notifications as read' }),

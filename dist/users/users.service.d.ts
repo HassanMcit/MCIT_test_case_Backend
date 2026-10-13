@@ -137,6 +137,16 @@ export declare class UsersService {
             assignedAt: string;
         };
     }>;
+    getNotifications(userId: number): Promise<{
+        notifications: any[];
+        unreadCount: number;
+    }>;
+    markNotificationRead(userId: number, notificationId: number): Promise<{
+        success: boolean;
+    }>;
+    markAllNotificationsRead(userId: number): Promise<{
+        success: boolean;
+    }>;
     unassignProject(userId: number, projectId: number): Promise<{
         message: string;
         userId: number;

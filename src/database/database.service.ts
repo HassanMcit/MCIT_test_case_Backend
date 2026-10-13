@@ -190,9 +190,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         used INTEGER DEFAULT 0,
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        "projectId" INTEGER,
+        "read" BOOLEAN DEFAULT FALSE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     await this.db.query('ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS severity TEXT DEFAULT NULL;');
+    await this.db.query('CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, "projectId" INTEGER, "read" BOOLEAN DEFAULT FALSE, "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP);');
   }
 
   private async seedInitialData() {

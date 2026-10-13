@@ -126,6 +126,40 @@ export class UsersController {
   }
 
   /**
+   * GET /api/users/notifications
+   * Get notifications for the currently logged-in user
+   */
+  @Get('notifications')
+  @ApiOperation({ summary: 'Get notifications for currently logged-in user' })
+  @ApiResponse({ status: 200, description: 'Notifications and unread count' })
+  getNotifications(@Request() req: any) {
+    return this.usersService.getNotifications(req.user.id);
+  }
+
+  /**
+   * PATCH /api/users/notifications/read-all
+   * Mark all notifications as read for current user
+   */
+  @Patch('notifications/read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  markAllNotificationsRead(@Request() req: any) {
+    return this.usersService.markAllNotificationsRead(req.user.id);
+  }
+
+  /**
+   * PATCH /api/users/notifications/:id/read
+   * Mark a specific notification as read
+   */
+  @Patch('notifications/:id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  markNotificationRead(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.markNotificationRead(req.user.id, id);
+  }
+
+  /**
    * POST /api/users/:id/assign-project
    * Assign a project to a user for testing (Admin Only)
    */

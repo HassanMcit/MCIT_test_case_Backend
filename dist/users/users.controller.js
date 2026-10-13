@@ -101,6 +101,15 @@ let UsersController = class UsersController {
     getMyAssignedProjects(req) {
         return this.usersService.getMyAssignedProjects(req.user.id);
     }
+    getNotifications(req) {
+        return this.usersService.getNotifications(req.user.id);
+    }
+    markAllNotificationsRead(req) {
+        return this.usersService.markAllNotificationsRead(req.user.id);
+    }
+    markNotificationRead(req, id) {
+        return this.usersService.markNotificationRead(req.user.id, id);
+    }
     assignProject(req, userId, dto) {
         if (req.user?.role !== 'admin') {
             throw new common_1.ForbiddenException('غير مصرح لك. إسناد المشاريع مخصص لمدير النظام (admin) فقط');
@@ -198,6 +207,32 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "getMyAssignedProjects", null);
+__decorate([
+    (0, common_1.Get)('notifications'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get notifications for currently logged-in user' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Notifications and unread count' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getNotifications", null);
+__decorate([
+    (0, common_1.Patch)('notifications/read-all'),
+    (0, swagger_1.ApiOperation)({ summary: 'Mark all notifications as read' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "markAllNotificationsRead", null);
+__decorate([
+    (0, common_1.Patch)('notifications/:id/read'),
+    (0, swagger_1.ApiOperation)({ summary: 'Mark a notification as read' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "markNotificationRead", null);
 __decorate([
     (0, common_1.Post)(':id/assign-project'),
     (0, swagger_1.ApiOperation)({ summary: 'Assign a project to a user for testing (Admin Only)' }),

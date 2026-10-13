@@ -456,6 +456,21 @@ export class UsersService {
       VALUES ($1, $2)
     `, [userId, dto.projectId]);
 
+    // Insert notification for the user
+    try {
+      await db.query(`
+        INSERT INTO notifications ("userId", title, message, "projectId", "read", "createdAt")
+        VALUES ($1, $2, $3, $4, FALSE, NOW())
+      `, [
+        userId,
+        `إسناد مشروع جديد: ${project.name}`,
+        `تم إسناد مشروع "${project.name}" إليك لمتابعة حالات الاختبار وضمان جودة المنظومة.`,
+        project.id,
+      ]);
+    } catch (notifErr) {
+      console.error('Error creating notification on assignment:', notifErr);
+    }
+
     return {
       message: `تم إسناد مشروع "${project.name}" للمستخدم "${user.name}" بنجاح للبدء في اختباره`,
       userId: user.id,
@@ -467,6 +482,54 @@ export class UsersService {
         assignedAt: new Date().toISOString(),
       },
     };
+  }
+
+  // ── NOTIFICATIONS ───────────────────────────────────────────────
+  async getNotifications(userId: number) {
+    const db = this.databaseService.db;
+    try {
+      const res = await db.query(
+        `SELECT id, "userId", title, message, "projectId", "read", "createdAt"
+         FROM notifications
+         WHERE "userId" = $1
+         ORDER BY "createdAt" DESC
+         LIMIT 30`,
+        [userId]
+      );
+      const unreadRes = await db.query(
+        `SELECT COUNT(*) as count FROM notifications WHERE "userId" = $1 AND "read" = FALSE`,
+        [userId]
+      );
+      const unreadCount = Number(unreadRes.rows[0]?.count || 0);
+      return {
+        notifications: res.rows,
+        unreadCount,
+      };
+    } catch {
+      return { notifications: [], unreadCount: 0 };
+    }
+  }
+
+  async markNotificationRead(userId: number, notificationId: number) {
+    const db = this.databaseService.db;
+    try {
+      await db.query(
+        `UPDATE notifications SET "read" = TRUE WHERE id = $1 AND "userId" = $2`,
+        [notificationId, userId]
+      );
+    } catch {}
+    return { success: true };
+  }
+
+  async markAllNotificationsRead(userId: number) {
+    const db = this.databaseService.db;
+    try {
+      await db.query(
+        `UPDATE notifications SET "read" = TRUE WHERE "userId" = $1`,
+        [userId]
+      );
+    } catch {}
+    return { success: true };
   }
 
   // ── DELETE /api/users/:id/assign-project/:projectId (Admin Only) ─

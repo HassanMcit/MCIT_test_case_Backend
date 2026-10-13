@@ -48,6 +48,16 @@ export declare class UsersController {
         photo: string;
     }[]>;
     getMyAssignedProjects(req: any): Promise<any[]>;
+    getNotifications(req: any): Promise<{
+        notifications: any[];
+        unreadCount: number;
+    }>;
+    markAllNotificationsRead(req: any): Promise<{
+        success: boolean;
+    }>;
+    markNotificationRead(req: any, id: number): Promise<{
+        success: boolean;
+    }>;
     assignProject(req: any, userId: number, dto: AssignProjectDto): Promise<{
         message: string;
         userId: any;

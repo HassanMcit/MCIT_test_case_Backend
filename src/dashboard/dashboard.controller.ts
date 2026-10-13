@@ -32,9 +32,10 @@ export class DashboardController {
     @Request() req: any,
     @Query('userId') queryUserId?: number,
     @Query('role') queryRole?: string,
+    @Query('projectId') projectId?: number,
   ) {
     const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
-    return this.dashboardService.getStats(user);
+    return this.dashboardService.getStats(user, projectId ? Number(projectId) : undefined);
   }
 
   /**
@@ -54,16 +55,27 @@ export class DashboardController {
       ],
     },
   })
-  getChartData(@Query('days') days?: number) {
-    return this.dashboardService.getChartData(days ? Number(days) : 14);
+  getChartData(
+    @Request() req: any,
+    @Query('days') days?: number,
+    @Query('userId') queryUserId?: number,
+    @Query('role') queryRole?: string,
+    @Query('projectId') projectId?: number,
+  ) {
+    const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+    return this.dashboardService.getChartData(
+      days ? Number(days) : 14,
+      user,
+      projectId ? Number(projectId) : undefined,
+    );
   }
 
   /**
    * GET /api/dashboard/severity
-   * Failed test cases breakdown by priority level
+   * Failed test cases breakdown by priority/severity level
    */
   @Get('severity')
-  @ApiOperation({ summary: 'Get defect severity breakdown by priority' })
+  @ApiOperation({ summary: 'Get defect severity breakdown by priority/severity' })
   @ApiResponse({
     status: 200,
     description: 'Severity distribution of failed/open test cases',
@@ -79,7 +91,13 @@ export class DashboardController {
       },
     },
   })
-  getSeverityBreakdown() {
-    return this.dashboardService.getSeverityBreakdown();
+  getSeverityBreakdown(
+    @Request() req: any,
+    @Query('userId') queryUserId?: number,
+    @Query('role') queryRole?: string,
+    @Query('projectId') projectId?: number,
+  ) {
+    const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+    return this.dashboardService.getSeverityBreakdown(user, projectId ? Number(projectId) : undefined);
   }
 }

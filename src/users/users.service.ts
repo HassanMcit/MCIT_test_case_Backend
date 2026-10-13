@@ -146,17 +146,58 @@ export class UsersService {
       ORDER BY pa."assignedAt" DESC
     `;
 
-    const stmtCountsSql = 'SELECT COUNT(*) as count FROM test_cases WHERE "testerId" = $1';
+    const stmtProjectStatsSql = `
+      SELECT
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
+        COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+        COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
+      FROM test_cases
+      WHERE "projectId" = $1 OR ("projectId" IS NULL AND LOWER(TRIM(module)) = LOWER(TRIM($2)))
+    `;
+
+    const stmtCountsSql = `
+      SELECT
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
+        COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+        COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
+      FROM test_cases
+      WHERE "testerId" = $1
+    `;
 
     return Promise.all(users.map(async (u) => {
       const assignedProjectsResult = await db.query(stmtProjectsSql, [u.id]);
-      const assignedProjects = assignedProjectsResult.rows.map((p: any) => ({
-        ...p,
-        userId: u.id,
-      }));
+      const assignedProjects = await Promise.all(
+        assignedProjectsResult.rows.map(async (p: any) => {
+          const pStatsRes = await db.query(stmtProjectStatsSql, [p.id, p.name || '']);
+          const pRow = pStatsRes.rows[0] || {};
+          const pTotal = Number(pRow.total || 0);
+          const pPassed = Number(pRow.passed || 0);
+          const pFailed = Number(pRow.failed || 0);
+          const pPending = Number(pRow.pending || 0);
+          const pSuccessRate = pTotal > 0 ? Math.round((pPassed / pTotal) * 1000) / 10 : 0;
+
+          return {
+            ...p,
+            userId: u.id,
+            stats: {
+              total: pTotal,
+              passed: pPassed,
+              failed: pFailed,
+              pending: pPending,
+              successRate: pSuccessRate,
+            },
+          };
+        })
+      );
 
       const testCasesCountResult = await db.query(stmtCountsSql, [u.id]);
-      const testCasesCount = Number(testCasesCountResult.rows[0].count);
+      const tcRow = testCasesCountResult.rows[0] || {};
+      const testCasesCount = Number(tcRow.total || 0);
+      const passedCount = Number(tcRow.passed || 0);
+      const failedCount = Number(tcRow.failed || 0);
+      const pendingCount = Number(tcRow.pending || 0);
 
       const photoUrl = this.databaseService.resolvePhotoUrl(u, req);
       return {
@@ -171,6 +212,9 @@ export class UsersService {
         updatedAt: u.updatedAt,
         _count: {
           testCases: testCasesCount,
+          passed: passedCount,
+          failed: failedCount,
+          pending: pendingCount,
           assignedProjects: assignedProjects.length,
         },
         assignedProjects,

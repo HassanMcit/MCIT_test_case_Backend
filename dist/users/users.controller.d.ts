@@ -33,6 +33,9 @@ export declare class UsersController {
         updatedAt: any;
         _count: {
             testCases: number;
+            passed: number;
+            failed: number;
+            pending: number;
             assignedProjects: number;
         };
         assignedProjects: any[];

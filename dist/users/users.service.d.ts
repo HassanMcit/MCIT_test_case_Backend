@@ -34,6 +34,9 @@ export declare class UsersService {
         updatedAt: any;
         _count: {
             testCases: number;
+            passed: number;
+            failed: number;
+            pending: number;
             assignedProjects: number;
         };
         assignedProjects: any[];

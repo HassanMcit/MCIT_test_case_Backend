@@ -73,9 +73,9 @@ let ProjectsService = class ProjectsService {
         COUNT(*) as total,
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+        SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END) as pending
       FROM test_cases
-      WHERE "projectId" = $1
+      WHERE "projectId" = $1 OR ("projectId" IS NULL AND LOWER(TRIM(module)) = LOWER(TRIM($2)))
     `;
         const assignedUsersSql = `
       SELECT u.id, u.id as "userId", u.name, u.email, u.role, u.photo, u."profileImage", pa."assignedAt"
@@ -85,7 +85,7 @@ let ProjectsService = class ProjectsService {
       ORDER BY pa."assignedAt" DESC
     `;
         return Promise.all(projects.map(async (p) => {
-            const statsResult = await db.query(statsSql, [p.id]);
+            const statsResult = await db.query(statsSql, [p.id, p.name || '']);
             const statsRow = statsResult.rows[0];
             const total = Number(statsRow.total) || 0;
             const passed = Number(statsRow.passed) || 0;

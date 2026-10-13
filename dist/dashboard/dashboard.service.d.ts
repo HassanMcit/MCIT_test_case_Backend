@@ -2,7 +2,7 @@ import { DatabaseService } from '../database/database.service';
 export declare class DashboardService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
-    getStats(currentUser?: any): Promise<{
+    getStats(currentUser?: any, projectId?: number): Promise<{
         total: number;
         passed: number;
         failed: number;
@@ -10,13 +10,13 @@ export declare class DashboardService {
         passRate: number;
         totalProjects: number;
     }>;
-    getChartData(days?: number): Promise<{
+    getChartData(days?: number, currentUser?: any, projectId?: number): Promise<{
         date: string;
         passed: number;
         failed: number;
         pending: number;
     }[]>;
-    getSeverityBreakdown(): Promise<{
+    getSeverityBreakdown(currentUser?: any, projectId?: number): Promise<{
         total: number;
         breakdown: {
             priority: string;

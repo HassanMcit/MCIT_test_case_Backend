@@ -20,15 +20,17 @@ let DashboardController = class DashboardController {
     constructor(dashboardService) {
         this.dashboardService = dashboardService;
     }
-    getStats(req, queryUserId, queryRole) {
+    getStats(req, queryUserId, queryRole, projectId) {
         const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
-        return this.dashboardService.getStats(user);
+        return this.dashboardService.getStats(user, projectId ? Number(projectId) : undefined);
     }
-    getChartData(days) {
-        return this.dashboardService.getChartData(days ? Number(days) : 14);
+    getChartData(req, days, queryUserId, queryRole, projectId) {
+        const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+        return this.dashboardService.getChartData(days ? Number(days) : 14, user, projectId ? Number(projectId) : undefined);
     }
-    getSeverityBreakdown() {
-        return this.dashboardService.getSeverityBreakdown();
+    getSeverityBreakdown(req, queryUserId, queryRole, projectId) {
+        const user = req.user || (queryUserId ? { id: Number(queryUserId), role: queryRole } : undefined);
+        return this.dashboardService.getSeverityBreakdown(user, projectId ? Number(projectId) : undefined);
     }
 };
 exports.DashboardController = DashboardController;
@@ -52,8 +54,9 @@ __decorate([
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Query)('userId')),
     __param(2, (0, common_1.Query)('role')),
+    __param(3, (0, common_1.Query)('projectId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Number, String]),
+    __metadata("design:paramtypes", [Object, Number, String, Number]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getStats", null);
 __decorate([
@@ -70,14 +73,18 @@ __decorate([
             ],
         },
     }),
-    __param(0, (0, common_1.Query)('days')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('days')),
+    __param(2, (0, common_1.Query)('userId')),
+    __param(3, (0, common_1.Query)('role')),
+    __param(4, (0, common_1.Query)('projectId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Object, Number, Number, String, Number]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getChartData", null);
 __decorate([
     (0, common_1.Get)('severity'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get defect severity breakdown by priority' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Get defect severity breakdown by priority/severity' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: 'Severity distribution of failed/open test cases',
@@ -93,8 +100,12 @@ __decorate([
             },
         },
     }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('userId')),
+    __param(2, (0, common_1.Query)('role')),
+    __param(3, (0, common_1.Query)('projectId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object, Number, String, Number]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getSeverityBreakdown", null);
 exports.DashboardController = DashboardController = __decorate([

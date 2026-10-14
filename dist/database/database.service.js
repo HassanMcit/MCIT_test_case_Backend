@@ -204,6 +204,39 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
     `);
         await this.db.query('ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS severity TEXT DEFAULT NULL;');
         await this.db.query('CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, "projectId" INTEGER, "read" BOOLEAN DEFAULT FALSE, "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP);');
+        await this.db.query(`
+      CREATE TABLE IF NOT EXISTS quality_applications (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        "nameAr" TEXT,
+        category TEXT DEFAULT 'Government Services',
+        url TEXT,
+        environment TEXT DEFAULT 'Production',
+        version TEXT DEFAULT 'v1.0',
+        status TEXT DEFAULT 'Healthy',
+        "passRate" NUMERIC(5,2) DEFAULT 95.0,
+        "suitesCount" INT DEFAULT 100,
+        "bugsCount" INT DEFAULT 0,
+        "lastCheck" TEXT DEFAULT 'Recently',
+        "defaultFunctions" JSONB DEFAULT '[]'::jsonb,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS quality_checklists (
+        id SERIAL PRIMARY KEY,
+        "appId" INT NOT NULL REFERENCES quality_applications(id) ON DELETE CASCADE,
+        "testerId" INT REFERENCES users(id) ON DELETE SET NULL,
+        "testerName" TEXT,
+        "isUpAndRunning" BOOLEAN DEFAULT TRUE,
+        "functionsResults" JSONB NOT NULL DEFAULT '[]'::jsonb,
+        "passedCount" INT DEFAULT 0,
+        "issuesCount" INT DEFAULT 0,
+        "performanceScore" NUMERIC(5,2) DEFAULT 100.0,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     }
     async seedInitialData() {
         const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);

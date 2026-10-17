@@ -26,6 +26,7 @@ export declare class CreateTestCaseDto {
     testerId?: number;
     userId?: number;
     projectId?: number;
+    updatedById?: number;
 }
 declare const UpdateTestCaseDto_base: import("@nestjs/common").Type<Partial<CreateTestCaseDto>>;
 export declare class UpdateTestCaseDto extends UpdateTestCaseDto_base {

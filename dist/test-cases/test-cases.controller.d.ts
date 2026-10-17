@@ -3,7 +3,7 @@ import { CreateTestCaseDto, UpdateTestCaseDto } from './dto/test-case.dto';
 export declare class TestCasesController {
     private readonly testCasesService;
     constructor(testCasesService: TestCasesService);
-    create(dto: CreateTestCaseDto): Promise<any>;
+    create(req: any, dto: CreateTestCaseDto): Promise<any>;
     findAll(req: any, page?: number, limit?: number, status?: string, priority?: string, module?: string, projectId?: number, search?: string, queryUserId?: number, queryUserRole?: string): Promise<{
         data: any[];
         meta: {
@@ -17,7 +17,7 @@ export declare class TestCasesController {
         nextId: string;
     }>;
     findOne(id: number): Promise<any>;
-    update(id: number, dto: UpdateTestCaseDto): Promise<any>;
+    update(req: any, id: number, dto: UpdateTestCaseDto): Promise<any>;
     remove(id: number): Promise<{
         message: string;
     }>;

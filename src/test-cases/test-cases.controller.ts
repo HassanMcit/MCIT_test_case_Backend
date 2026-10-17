@@ -37,8 +37,8 @@ export class TestCasesController {
   @ApiOperation({ summary: 'Create a new test case' })
   @ApiResponse({ status: 201, description: 'Test case created successfully' })
   @ApiResponse({ status: 409, description: 'Test case ID already exists' })
-  create(@Body() dto: CreateTestCaseDto) {
-    return this.testCasesService.create(dto);
+  create(@Request() req: any, @Body() dto: CreateTestCaseDto) {
+    return this.testCasesService.create(dto, req?.user);
   }
 
   /**
@@ -113,10 +113,11 @@ export class TestCasesController {
   @ApiResponse({ status: 200, description: 'Test case updated' })
   @ApiResponse({ status: 404, description: 'Test case not found' })
   update(
+    @Request() req: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTestCaseDto,
   ) {
-    return this.testCasesService.update(id, dto);
+    return this.testCasesService.update(id, dto, req?.user);
   }
 
   /**

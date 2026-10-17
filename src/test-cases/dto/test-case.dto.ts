@@ -162,6 +162,11 @@ export class CreateTestCaseDto {
   @IsOptional()
   @IsInt({ message: 'معرّف المشروع يجب أن يكون رقماً صحيحاً' })
   projectId?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'ID of the user who last updated this test case' })
+  @IsOptional()
+  @IsInt()
+  updatedById?: number;
 }
 
 export class UpdateTestCaseDto extends PartialType(CreateTestCaseDto) {}

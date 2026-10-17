@@ -43,7 +43,7 @@ let TestCasesService = class TestCasesService {
         const nextId = await this.generateTestId(projectId, module);
         return { nextId };
     }
-    async create(dto) {
+    async create(dto, currentUser) {
         const db = this.databaseService.db;
         const targetProjectId = dto.projectId || null;
         const testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
@@ -62,7 +62,8 @@ let TestCasesService = class TestCasesService {
         }
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
-        const targetTesterId = dto.testerId ?? dto.userId ?? null;
+        const authUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
+        const targetTesterId = dto.testerId ?? dto.userId ?? (authUserId ? Number(authUserId) : null);
         const severity = dto.severity || (dto.status === 'failed' ? 'medium' : null);
         const stmt = `
       INSERT INTO test_cases (
@@ -140,9 +141,11 @@ let TestCasesService = class TestCasesService {
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
+        u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
       LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
       ORDER BY tc."testId" ASC, tc.id ASC
@@ -151,7 +154,7 @@ let TestCasesService = class TestCasesService {
         const rowsResult = await db.query(dataSql, limitOffsetParams);
         const rows = rowsResult.rows;
         const formattedData = rows.map((r) => {
-            const { tester_id, tester_name, tester_email, project_id, project_name, ...base } = r;
+            const { tester_id, tester_name, tester_email, updated_by_id, updated_by_name, updated_by_email, project_id, project_name, ...base } = r;
             let steps = [];
             try {
                 steps = JSON.parse(base.steps || '[]');
@@ -165,6 +168,8 @@ let TestCasesService = class TestCasesService {
                 testerId: tester_id || null,
                 userId: tester_id || null,
                 tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
+                updatedById: updated_by_id || null,
+                updatedBy: updated_by_id ? { id: updated_by_id, userId: updated_by_id, name: updated_by_name, email: updated_by_email } : null,
                 project: project_id ? { id: project_id, name: project_name } : null,
             };
         });
@@ -184,9 +189,11 @@ let TestCasesService = class TestCasesService {
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
+        u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases tc
       LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       WHERE tc.id = $1
     `;
@@ -195,7 +202,7 @@ let TestCasesService = class TestCasesService {
         if (!row) {
             throw new common_1.NotFoundException(`Test case #${id} not found`);
         }
-        const { tester_id, tester_name, tester_email, project_id, project_name, ...base } = row;
+        const { tester_id, tester_name, tester_email, updated_by_id, updated_by_name, updated_by_email, project_id, project_name, ...base } = row;
         let steps = [];
         try {
             steps = JSON.parse(base.steps || '[]');
@@ -209,10 +216,12 @@ let TestCasesService = class TestCasesService {
             testerId: tester_id || null,
             userId: tester_id || null,
             tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name, email: tester_email } : null,
+            updatedById: updated_by_id || null,
+            updatedBy: updated_by_id ? { id: updated_by_id, userId: updated_by_id, name: updated_by_name, email: updated_by_email } : null,
             project: project_id ? { id: project_id, name: project_name } : null,
         };
     }
-    async update(id, dto) {
+    async update(id, dto, currentUser) {
         const db = this.databaseService.db;
         await this.findOne(id);
         let pidx = 1;
@@ -222,6 +231,14 @@ let TestCasesService = class TestCasesService {
         if (effectiveTesterId !== undefined) {
             fields.push(`"testerId" = $${pidx++}`);
             values.push(effectiveTesterId);
+        }
+        const updaterUserId = currentUser?.id ||
+            currentUser?.userId ||
+            currentUser?.sub ||
+            dto.updatedById;
+        if (updaterUserId !== undefined && updaterUserId !== null) {
+            fields.push(`"updatedById" = $${pidx++}`);
+            values.push(Number(updaterUserId));
         }
         const allowed = [
             'testId', 'module', 'pageName', 'scenario', 'preConditions',

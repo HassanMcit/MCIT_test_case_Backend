@@ -167,6 +167,12 @@ __decorate([
     (0, class_validator_1.IsInt)({ message: 'معرّف المشروع يجب أن يكون رقماً صحيحاً' }),
     __metadata("design:type", Number)
 ], CreateTestCaseDto.prototype, "projectId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 1, description: 'ID of the user who last updated this test case' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], CreateTestCaseDto.prototype, "updatedById", void 0);
 class UpdateTestCaseDto extends (0, swagger_1.PartialType)(CreateTestCaseDto) {
 }
 exports.UpdateTestCaseDto = UpdateTestCaseDto;

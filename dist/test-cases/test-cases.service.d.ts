@@ -16,7 +16,7 @@ export declare class TestCasesService {
     getNextTestId(projectId?: number, module?: string): Promise<{
         nextId: string;
     }>;
-    create(dto: CreateTestCaseDto): Promise<any>;
+    create(dto: CreateTestCaseDto, currentUser?: any): Promise<any>;
     findAll(query: QueryFilter, currentUser?: any): Promise<{
         data: any[];
         meta: {
@@ -27,7 +27,7 @@ export declare class TestCasesService {
         };
     }>;
     findOne(id: number): Promise<any>;
-    update(id: number, dto: UpdateTestCaseDto): Promise<any>;
+    update(id: number, dto: UpdateTestCaseDto, currentUser?: any): Promise<any>;
     remove(id: number): Promise<{
         message: string;
     }>;

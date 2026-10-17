@@ -21,8 +21,8 @@ let TestCasesController = class TestCasesController {
     constructor(testCasesService) {
         this.testCasesService = testCasesService;
     }
-    create(dto) {
-        return this.testCasesService.create(dto);
+    create(req, dto) {
+        return this.testCasesService.create(dto, req?.user);
     }
     findAll(req, page, limit, status, priority, module, projectId, search, queryUserId, queryUserRole) {
         const user = req?.user || (queryUserId ? { id: Number(queryUserId), role: queryUserRole } : undefined);
@@ -34,8 +34,8 @@ let TestCasesController = class TestCasesController {
     findOne(id) {
         return this.testCasesService.findOne(id);
     }
-    update(id, dto) {
-        return this.testCasesService.update(id, dto);
+    update(req, id, dto) {
+        return this.testCasesService.update(id, dto, req?.user);
     }
     remove(id) {
         return this.testCasesService.remove(id);
@@ -47,9 +47,10 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Create a new test case' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Test case created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 409, description: 'Test case ID already exists' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [test_case_dto_1.CreateTestCaseDto]),
+    __metadata("design:paramtypes", [Object, test_case_dto_1.CreateTestCaseDto]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "create", null);
 __decorate([
@@ -106,10 +107,11 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: 'id', type: Number, example: 1 }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Test case updated' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Test case not found' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, test_case_dto_1.UpdateTestCaseDto]),
+    __metadata("design:paramtypes", [Object, Number, test_case_dto_1.UpdateTestCaseDto]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "update", null);
 __decorate([

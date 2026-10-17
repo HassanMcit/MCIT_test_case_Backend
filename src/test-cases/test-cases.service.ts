@@ -185,7 +185,7 @@ export class TestCasesService {
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
-      ORDER BY tc."testId" ASC, tc.id ASC
+      ORDER BY COALESCE(tc."executedAt", tc."createdAt") DESC, tc.id DESC
       LIMIT $${pidx++} OFFSET $${pidx++}
     `;
 

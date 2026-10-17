@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
@@ -239,7 +239,14 @@ export class ProjectsService {
   // ── DELETE /api/projects/:id ─────────────────────────────────────
   async remove(id: number) {
     const db = this.databaseService.db;
-    await this.findOne(id);
+    const project = await this.findOne(id);
+
+    if (project.assignedUsers && project.assignedUsers.length > 0) {
+      throw new BadRequestException(
+        'لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.',
+      );
+    }
+
     await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [id]);
     await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
     await db.query('DELETE FROM projects WHERE id = $1', [id]);

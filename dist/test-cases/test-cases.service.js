@@ -46,7 +46,7 @@ let TestCasesService = class TestCasesService {
     async create(dto, currentUser) {
         const db = this.databaseService.db;
         const targetProjectId = dto.projectId || null;
-        const testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
+        let testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
         let existingResult;
         if (targetProjectId) {
             existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" = $2', [testId, targetProjectId]);
@@ -58,7 +58,8 @@ let TestCasesService = class TestCasesService {
             existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" IS NULL', [testId]);
         }
         if (existingResult.rows.length > 0) {
-            throw new common_1.ConflictException(`حالة الاختبار برقم "${testId}" موجودة مسبقاً في هذا المشروع`);
+            const nextTcId = await this.generateTestId(targetProjectId || undefined, dto.module);
+            testId = dto.status === 'failed' ? nextTcId.replace(/^TC-/, 'BUG-') : nextTcId;
         }
         const stepsStr = JSON.stringify(dto.steps || []);
         const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);

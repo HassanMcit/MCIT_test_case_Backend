@@ -46,8 +46,8 @@ __decorate([
         description: 'System module being tested (validated with Regex)',
     }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^[\p{L}\p{N}\s\-_.,()&/]{2,50}$/u, {
-        message: 'اسم الوحدة البرمجية يجب أن يتكون من 2 إلى 50 حرف مقبولة',
+    (0, class_validator_1.Matches)(/^[\p{L}\p{N}\s\-_.,()&/:'"+–—]{2,200}$/u, {
+        message: 'اسم الوحدة البرمجية يجب أن يتكون من 2 إلى 200 حرف مقبولة',
     }),
     __metadata("design:type", String)
 ], CreateTestCaseDto.prototype, "module", void 0);

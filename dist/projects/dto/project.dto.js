@@ -31,8 +31,8 @@ __decorate([
         description: 'Project name (validated with Regex)',
     }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^[\p{L}\p{N}\s\-_.,()&/]{2,100}$/u, {
-        message: 'اسم المشروع يجب أن يتكون من 2 إلى 100 حرف ويحتوي على أحرف وأرقام مقبولة',
+    (0, class_validator_1.Matches)(/^[\p{L}\p{N}\s\-_.,()&/:'"+–—]{2,200}$/u, {
+        message: 'اسم المشروع يجب أن يتكون من 2 إلى 200 حرف ويحتوي على أحرف وأرقام مقبولة',
     }),
     __metadata("design:type", String)
 ], CreateProjectDto.prototype, "name", void 0);

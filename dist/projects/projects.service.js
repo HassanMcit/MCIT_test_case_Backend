@@ -202,7 +202,10 @@ let ProjectsService = class ProjectsService {
     }
     async remove(id) {
         const db = this.databaseService.db;
-        await this.findOne(id);
+        const project = await this.findOne(id);
+        if (project.assignedUsers && project.assignedUsers.length > 0) {
+            throw new common_1.BadRequestException('لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.');
+        }
         await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [id]);
         await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
         await db.query('DELETE FROM projects WHERE id = $1', [id]);

@@ -59,9 +59,9 @@ export class TestCasesService {
   async create(dto: CreateTestCaseDto, currentUser?: any) {
     const db = this.databaseService.db;
     const targetProjectId = dto.projectId || null;
-    const testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
+    let testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
 
-    // Check uniqueness within the project
+    // Check uniqueness within the project — if already exists (e.g. from cached nextId), auto-assign next available ID
     let existingResult;
     if (targetProjectId) {
       existingResult = await db.query(
@@ -81,7 +81,8 @@ export class TestCasesService {
     }
 
     if (existingResult.rows.length > 0) {
-      throw new ConflictException(`حالة الاختبار برقم "${testId}" موجودة مسبقاً في هذا المشروع`);
+      const nextTcId = await this.generateTestId(targetProjectId || undefined, dto.module);
+      testId = dto.status === 'failed' ? nextTcId.replace(/^TC-/, 'BUG-') : nextTcId;
     }
 
     const stepsStr = JSON.stringify(dto.steps || []);

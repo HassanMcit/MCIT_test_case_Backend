@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { DatabaseModule }   from './database/database.module';
 import { AuthModule }       from './auth/auth.module';
@@ -8,7 +8,9 @@ import { DashboardModule }  from './dashboard/dashboard.module';
 import { TestCasesModule }  from './test-cases/test-cases.module';
 import { ProjectsModule }   from './projects/projects.module';
 import { UsersModule }      from './users/users.module';
+import { AuditLogsModule }  from './audit-logs/audit-logs.module';
 import { JwtAuthGuard }     from './auth/jwt-auth.guard';
+import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
 
 @Module({
   imports: [
@@ -24,12 +26,18 @@ import { JwtAuthGuard }     from './auth/jwt-auth.guard';
     TestCasesModule,
     ProjectsModule,
     UsersModule,
+    AuditLogsModule,
   ],
   providers: [
     // Apply JWT guard globally — use @Public() to opt-out per route
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // Global Audit Log Interceptor — tracks all state changing actions
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
     },
   ],
 })

@@ -16,7 +16,9 @@ const dashboard_module_1 = require("./dashboard/dashboard.module");
 const test_cases_module_1 = require("./test-cases/test-cases.module");
 const projects_module_1 = require("./projects/projects.module");
 const users_module_1 = require("./users/users.module");
+const audit_logs_module_1 = require("./audit-logs/audit-logs.module");
 const jwt_auth_guard_1 = require("./auth/jwt-auth.guard");
+const audit_log_interceptor_1 = require("./audit-logs/audit-log.interceptor");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,11 +32,16 @@ exports.AppModule = AppModule = __decorate([
             test_cases_module_1.TestCasesModule,
             projects_module_1.ProjectsModule,
             users_module_1.UsersModule,
+            audit_logs_module_1.AuditLogsModule,
         ],
         providers: [
             {
                 provide: core_1.APP_GUARD,
                 useClass: jwt_auth_guard_1.JwtAuthGuard,
+            },
+            {
+                provide: core_1.APP_INTERCEPTOR,
+                useClass: audit_log_interceptor_1.AuditLogInterceptor,
             },
         ],
     })

@@ -223,6 +223,29 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         "lastSeenAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "revokedAt" TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        "userName" TEXT,
+        email TEXT,
+        role TEXT,
+        action TEXT NOT NULL,
+        "actionCategory" TEXT,
+        description TEXT,
+        method TEXT,
+        endpoint TEXT,
+        ip TEXT,
+        "macAddress" TEXT,
+        location TEXT,
+        "deviceInfo" TEXT,
+        "userAgent" TEXT,
+        status TEXT DEFAULT 'success',
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS "audit_logs_created_at_idx" ON audit_logs ("createdAt" DESC);
+      CREATE INDEX IF NOT EXISTS "audit_logs_user_id_idx" ON audit_logs ("userId");
     `);
         await this.db.query('CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, "projectId" INTEGER, "read" BOOLEAN DEFAULT FALSE, "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP);');
         await this.db.query(`

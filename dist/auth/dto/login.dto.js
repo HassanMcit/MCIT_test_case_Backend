@@ -36,4 +36,34 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], LoginDto.prototype, "password", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Client IP address' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "clientIp", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Device MAC / Hardware ID' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "macAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Device OS & Browser info' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "deviceInfo", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Geographic location of the login' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "location", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Browser User-Agent string' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "userAgent", void 0);
 //# sourceMappingURL=login.dto.js.map

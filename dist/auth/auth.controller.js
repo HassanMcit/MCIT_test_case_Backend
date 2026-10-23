@@ -58,6 +58,16 @@ let AuthController = class AuthController {
         }
         return { message: 'Logged out successfully' };
     }
+    getSessions(req) {
+        return this.authService.getSessions(req.user);
+    }
+    revokeSession(sessionId, req) {
+        return this.authService.revokeSession(sessionId, req.user);
+    }
+    revokeAllSessions(body, req) {
+        const targetUserId = Number(body?.userId || req.user?.id);
+        return this.authService.revokeAllUserSessions(targetUserId, req.user, Boolean(body?.keepCurrent));
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -209,6 +219,37 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.Get)('sessions'),
+    (0, swagger_1.ApiBearerAuth)('access-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get login sessions and device telemetry' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "getSessions", null);
+__decorate([
+    (0, common_1.Post)('sessions/:sessionId/revoke'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiBearerAuth)('access-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Revoke / force logout a specific device session' }),
+    __param(0, (0, common_1.Param)('sessionId')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "revokeSession", null);
+__decorate([
+    (0, common_1.Post)('sessions/revoke-all'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiBearerAuth)('access-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Force logout all sessions for a user' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "revokeAllSessions", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

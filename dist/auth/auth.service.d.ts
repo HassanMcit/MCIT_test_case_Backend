@@ -19,8 +19,10 @@ export declare class AuthService {
     private readonly databaseService;
     private readonly jwtService;
     constructor(databaseService: DatabaseService, jwtService: JwtService);
+    private resolveGeoLocation;
     login(dto: LoginDto, req?: any): Promise<{
         access_token: string;
+        sessionId: `${string}-${string}-${string}-${string}-${string}`;
         userId: number;
         user: {
             id: number;
@@ -31,6 +33,15 @@ export declare class AuthService {
             photo: string;
             profileImage: string;
         };
+    }>;
+    getSessions(currentUser: any): Promise<any[]>;
+    revokeSession(sessionId: string, currentUser: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    revokeAllUserSessions(targetUserId: number, currentUser: any, keepCurrent?: boolean): Promise<{
+        success: boolean;
+        message: string;
     }>;
     getMe(userId: number, req?: any): Promise<UserProfile>;
     changePassword(userId: number, dto: ChangePasswordDto): Promise<{

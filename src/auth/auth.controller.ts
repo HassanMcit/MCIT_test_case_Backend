@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Param,
   Request,
   HttpCode,
   HttpStatus,
@@ -200,6 +201,49 @@ export class AuthController {
       }
     }
     return { message: 'Logged out successfully' };
+  }
+
+  /**
+   * GET /api/auth/sessions
+   * List login sessions with IP, MAC/Device ID, Location, and Device info
+   */
+  @Get('sessions')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get login sessions and device telemetry' })
+  getSessions(@Request() req: any) {
+    return this.authService.getSessions(req.user);
+  }
+
+  /**
+   * POST /api/auth/sessions/:sessionId/revoke
+   * Force logout a specific device session
+   */
+  @Post('sessions/:sessionId/revoke')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Revoke / force logout a specific device session' })
+  revokeSession(@Param('sessionId') sessionId: string, @Request() req: any) {
+    return this.authService.revokeSession(sessionId, req.user);
+  }
+
+  /**
+   * POST /api/auth/sessions/revoke-all
+   * Force logout all sessions for a user
+   */
+  @Post('sessions/revoke-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Force logout all sessions for a user' })
+  revokeAllSessions(
+    @Body() body: { userId?: number; keepCurrent?: boolean },
+    @Request() req: any,
+  ) {
+    const targetUserId = Number(body?.userId || req.user?.id);
+    return this.authService.revokeAllUserSessions(
+      targetUserId,
+      req.user,
+      Boolean(body?.keepCurrent),
+    );
   }
 }
 

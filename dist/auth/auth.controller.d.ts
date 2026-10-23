@@ -9,6 +9,7 @@ export declare class AuthController {
     constructor(authService: AuthService);
     login(dto: LoginDto, req: any, res?: any): Promise<{
         access_token: string;
+        sessionId: `${string}-${string}-${string}-${string}-${string}`;
         userId: number;
         user: {
             id: number;
@@ -43,4 +44,16 @@ export declare class AuthController {
     logout(res?: any): {
         message: string;
     };
+    getSessions(req: any): Promise<any[]>;
+    revokeSession(sessionId: string, req: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    revokeAllSessions(body: {
+        userId?: number;
+        keepCurrent?: boolean;
+    }, req: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
 }

@@ -7,6 +7,8 @@ export interface JwtPayload {
   sub: number;
   email: string;
   role: string;
+  sid?: string;
+  iat?: number;
 }
 
 @Injectable()
@@ -37,14 +39,41 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     const userResult = await this.databaseService.db.query(
-      'SELECT id, name, email, role FROM users WHERE id = $1',
+      'SELECT id, name, email, role, "minTokenIat" FROM users WHERE id = $1',
       [payload.sub]
     );
-    const user = userResult.rows[0] as { id: number; name: string; email: string; role: string } | undefined;
+    const user = userResult.rows[0] as
+      | { id: number; name: string; email: string; role: string; minTokenIat?: string | number }
+      | undefined;
 
     if (!user) {
       throw new UnauthorizedException('User no longer exists');
     }
-    return user;
+
+    const minIat = Number(user.minTokenIat || 0);
+    if (minIat > 0 && (!payload.iat || payload.iat < minIat)) {
+      throw new UnauthorizedException('Session has been logged out remotely');
+    }
+
+    if (payload.sid) {
+      const sessionRes = await this.databaseService.db.query(
+        'SELECT "isActive" FROM user_login_sessions WHERE "sessionId" = $1',
+        [payload.sid]
+      );
+      if (sessionRes.rows.length > 0 && !sessionRes.rows[0].isActive) {
+        throw new UnauthorizedException('This device session was revoked');
+      }
+      this.databaseService.db
+        .query('UPDATE user_login_sessions SET "lastSeenAt" = NOW() WHERE "sessionId" = $1', [payload.sid])
+        .catch(() => {});
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      sid: payload.sid,
+    };
   }
 }

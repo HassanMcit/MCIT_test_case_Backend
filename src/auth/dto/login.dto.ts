@@ -1,5 +1,5 @@
-import { IsString, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({
@@ -26,4 +26,29 @@ export class LoginDto {
     },
   )
   password: string;
+
+  @ApiPropertyOptional({ description: 'Client IP address' })
+  @IsOptional()
+  @IsString()
+  clientIp?: string;
+
+  @ApiPropertyOptional({ description: 'Device MAC / Hardware ID' })
+  @IsOptional()
+  @IsString()
+  macAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Device OS & Browser info' })
+  @IsOptional()
+  @IsString()
+  deviceInfo?: string;
+
+  @ApiPropertyOptional({ description: 'Geographic location of the login' })
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @ApiPropertyOptional({ description: 'Browser User-Agent string' })
+  @IsOptional()
+  @IsString()
+  userAgent?: string;
 }

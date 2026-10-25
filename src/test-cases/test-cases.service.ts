@@ -2,9 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateTestCaseDto, UpdateTestCaseDto } from './dto/test-case.dto';
+import { WorkflowService } from '../workflow/workflow.service';
 
 interface QueryFilter {
   page?: number;
@@ -18,7 +20,7 @@ interface QueryFilter {
 
 @Injectable()
 export class TestCasesService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService, private readonly workflow: WorkflowService) {}
 
   // ── Helper: auto-generate testId per project ──────────────────────
   async generateTestId(projectId?: number, module?: string): Promise<string> {
@@ -57,7 +59,11 @@ export class TestCasesService {
 
   // ── POST /api/test-cases ─────────────────────────────────────────
   async create(dto: CreateTestCaseDto, currentUser?: any) {
-    const db = this.databaseService.db;
+    if (dto.projectId) await this.workflow.project(dto.projectId, currentUser);
+    else if (currentUser.role !== 'admin') throw new ForbiddenException('Select an assigned project');
+    const assignedTester = dto.testerId ?? dto.userId;
+    if (assignedTester && assignedTester !== currentUser.id && currentUser.role !== 'admin') throw new ForbiddenException('Cannot assign another tester');
+    return this.workflow.transaction(async db => {
     const targetProjectId = dto.projectId || null;
     let testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
 
@@ -86,7 +92,6 @@ export class TestCasesService {
     }
 
     const stepsStr = JSON.stringify(dto.steps || []);
-    const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
     const authUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
     const targetTesterId = dto.testerId ?? dto.userId ?? (authUserId ? Number(authUserId) : null);
     const severity = dto.severity || (dto.status === 'failed' ? 'medium' : null);
@@ -108,18 +113,21 @@ export class TestCasesService {
       dto.preConditions || null,
       stepsStr,
       dto.expectedResult,
-      dto.actualResult || null,
+      null,
       dto.priority || 'medium',
-      dto.status || 'pending',
+      'pending',
       severity,
-      dto.notes || null,
-      executedAt,
+      null,
+      null,
       targetTesterId,
       dto.projectId || null,
     ]);
 
     const newId = result.rows[0].id;
-    return this.findOne(newId);
+    const tc = (await db.query('SELECT * FROM test_cases WHERE id=$1',[newId])).rows[0];
+    if (dto.status && (dto.status !== 'pending' || dto.actualResult || dto.notes)) await this.workflow.appendCompatibility(db,tc,dto,currentUser);
+    return { id: newId };
+    }).then(result => this.findOne(result.id));
   }
 
   // ── GET /api/test-cases ──────────────────────────────────────────
@@ -170,7 +178,7 @@ export class TestCasesService {
     const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
     const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
 
-    const countSql = `SELECT COUNT(*) as total FROM test_cases tc ${whereClause}`;
+    const countSql = `SELECT COUNT(*) as total FROM test_cases_current tc ${whereClause}`;
     const totalResult = await db.query(countSql, params);
     const total = Number(totalResult.rows[0].total);
 
@@ -181,7 +189,7 @@ export class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
-      FROM test_cases tc
+      FROM test_cases_current tc
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -232,7 +240,8 @@ export class TestCasesService {
   }
 
   // ── GET /api/test-cases/:id ──────────────────────────────────────
-  async findOne(id: number) {
+  async findOne(id: number, currentUser?: any) {
+    if (currentUser) await this.workflow.caseAccess(id,currentUser);
     const db = this.databaseService.db;
     const sql = `
       SELECT
@@ -240,7 +249,7 @@ export class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
-      FROM test_cases tc
+      FROM test_cases_current tc
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -281,8 +290,16 @@ export class TestCasesService {
 
   // ── PATCH /api/test-cases/:id ────────────────────────────────────
   async update(id: number, dto: UpdateTestCaseDto, currentUser?: any) {
-    const db = this.databaseService.db;
-    await this.findOne(id); // Throws if not found
+    await this.workflow.caseAccess(id,currentUser);
+    return this.workflow.transaction(async db => {
+    const original=(await db.query('SELECT * FROM test_cases WHERE id=$1 FOR UPDATE',[id])).rows[0];
+    await this.workflow.caseAccess(id,currentUser,db);
+    if (dto.projectId !== undefined && dto.projectId !== original.projectId) {
+      if (dto.projectId) await this.workflow.project(dto.projectId,currentUser,db);
+      else if (currentUser.role !== 'admin') throw new ForbiddenException('Select an assigned project');
+      const dependencies=await db.query('SELECT 1 FROM test_executions WHERE "testCaseId"=$1 UNION ALL SELECT 1 FROM test_cycle_items WHERE "testCaseId"=$1 LIMIT 1',[id]);
+      if (dependencies.rowCount) throw new ConflictException('Cannot move a test case with cycle or execution history');
+    }
 
     let pidx = 1;
     const fields: string[] = [];
@@ -290,6 +307,7 @@ export class TestCasesService {
 
     const effectiveTesterId = dto.testerId ?? dto.userId;
     if (effectiveTesterId !== undefined) {
+      if (currentUser.role !== 'admin' && effectiveTesterId !== currentUser.id) throw new ForbiddenException('Cannot assign another tester');
       fields.push(`"testerId" = $${pidx++}`);
       values.push(effectiveTesterId);
     }
@@ -307,8 +325,7 @@ export class TestCasesService {
 
     const allowed = [
       'testId', 'module', 'pageName', 'scenario', 'preConditions',
-      'expectedResult', 'actualResult', 'priority', 'status', 'severity',
-      'notes', 'executedAt', 'projectId'
+      'expectedResult', 'priority', 'severity', 'projectId'
     ];
 
     for (const key of allowed) {
@@ -330,14 +347,22 @@ export class TestCasesService {
       await db.query(sql, values);
     }
 
-    return this.findOne(id);
+    const tc=(await db.query('SELECT * FROM test_cases WHERE id=$1',[id])).rows[0];
+    if (dto.status !== undefined || dto.actualResult !== undefined || dto.executedAt !== undefined || dto.notes !== undefined) {
+      const latest=(await db.query('SELECT * FROM test_executions WHERE "testCaseId"=$1 ORDER BY id DESC LIMIT 1',[id])).rows[0];
+      await this.workflow.appendCompatibility(db,tc,{status:dto.status ?? latest?.status ?? 'pending',actualResult:dto.actualResult ?? latest?.actualResult,notes:dto.notes ?? latest?.notes,executedAt:dto.executedAt},currentUser);
+    }
+    return {id};
+    }).then(result=>this.findOne(result.id));
   }
 
   // ── DELETE /api/test-cases/:id ───────────────────────────────────
-  async remove(id: number) {
+  async remove(id: number, currentUser: any) {
+    await this.workflow.caseAccess(id,currentUser);
     const db = this.databaseService.db;
     await this.findOne(id);
-    await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+    try { await db.query('DELETE FROM test_cases WHERE id = $1', [id]); }
+    catch(error: any) {if(['23503','23001'].includes(error?.code)) throw new ConflictException('Test case has cycle or execution history and cannot be deleted');throw error;}
     return { message: `Test case #${id} deleted successfully` };
   }
 }

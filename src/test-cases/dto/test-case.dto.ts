@@ -19,6 +19,8 @@ export enum Status {
   PASSED = 'passed',
   FAILED = 'failed',
   PENDING = 'pending',
+  BLOCKED = 'blocked',
+  SKIPPED = 'skipped',
 }
 
 export class CreateTestCaseDto {
@@ -109,7 +111,7 @@ export class CreateTestCaseDto {
   })
   @IsOptional()
   @Matches(
-    /^(passed|failed|pending)$/,
+    /^(passed|failed|pending|blocked|skipped)$/,
     {
       message: 'الحالة يجب أن تكون إما: passed أو failed أو pending',
     },

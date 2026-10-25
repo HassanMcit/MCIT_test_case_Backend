@@ -11,6 +11,7 @@ import { UsersModule }      from './users/users.module';
 import { AuditLogsModule }  from './audit-logs/audit-logs.module';
 import { JwtAuthGuard }     from './auth/jwt-auth.guard';
 import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AuditLogInterceptor } from './audit-logs/audit-log.interceptor';
     ProjectsModule,
     UsersModule,
     AuditLogsModule,
+    WorkflowModule,
   ],
   providers: [
     // Apply JWT guard globally — use @Public() to opt-out per route

@@ -186,7 +186,7 @@ export class UsersService {
         COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
         COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
         COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-      FROM test_cases
+      FROM test_cases_current
       WHERE "projectId" = $1 OR ("projectId" IS NULL AND LOWER(TRIM(module)) = LOWER(TRIM($2)))
     `;
 
@@ -196,7 +196,7 @@ export class UsersService {
         COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
         COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
         COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-      FROM test_cases
+      FROM test_cases_current
       WHERE "testerId" = $1
     `;
 
@@ -284,7 +284,7 @@ export class UsersService {
       throw new NotFoundException(`المستخدم رقم #${id} غير موجود`);
     }
 
-    const testCaseCountResult = await db.query('SELECT COUNT(*) as count FROM test_cases WHERE "testerId" = $1', [id]);
+    const testCaseCountResult = await db.query('SELECT COUNT(*) as count FROM test_cases_current WHERE "testerId" = $1', [id]);
     const testCaseCount = Number(testCaseCountResult.rows[0].count);
 
     const assignedProjectsResult = await db.query(`
@@ -615,7 +615,7 @@ export class UsersService {
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
-      FROM test_cases
+      FROM test_cases_current
       WHERE "projectId" = $1
     `;
 

@@ -7,7 +7,9 @@ export declare enum Priority {
 export declare enum Status {
     PASSED = "passed",
     FAILED = "failed",
-    PENDING = "pending"
+    PENDING = "pending",
+    BLOCKED = "blocked",
+    SKIPPED = "skipped"
 }
 export declare class CreateTestCaseDto {
     testId?: string;

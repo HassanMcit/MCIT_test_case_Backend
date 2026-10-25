@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TestCasesService = void 0;
 const common_1 = require("@nestjs/common");
 const database_service_1 = require("../database/database.service");
+const workflow_service_1 = require("../workflow/workflow.service");
 let TestCasesService = class TestCasesService {
-    constructor(databaseService) {
+    constructor(databaseService, workflow) {
         this.databaseService = databaseService;
+        this.workflow = workflow;
     }
     async generateTestId(projectId, module) {
         const db = this.databaseService.db;
@@ -44,29 +46,35 @@ let TestCasesService = class TestCasesService {
         return { nextId };
     }
     async create(dto, currentUser) {
-        const db = this.databaseService.db;
-        const targetProjectId = dto.projectId || null;
-        let testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
-        let existingResult;
-        if (targetProjectId) {
-            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" = $2', [testId, targetProjectId]);
-        }
-        else if (dto.module) {
-            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND LOWER(TRIM(module)) = LOWER(TRIM($2))', [testId, dto.module]);
-        }
-        else {
-            existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" IS NULL', [testId]);
-        }
-        if (existingResult.rows.length > 0) {
-            const nextTcId = await this.generateTestId(targetProjectId || undefined, dto.module);
-            testId = dto.status === 'failed' ? nextTcId.replace(/^TC-/, 'BUG-') : nextTcId;
-        }
-        const stepsStr = JSON.stringify(dto.steps || []);
-        const executedAt = dto.executedAt || (dto.status === 'passed' || dto.status === 'failed' ? new Date().toISOString() : null);
-        const authUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
-        const targetTesterId = dto.testerId ?? dto.userId ?? (authUserId ? Number(authUserId) : null);
-        const severity = dto.severity || (dto.status === 'failed' ? 'medium' : null);
-        const stmt = `
+        if (dto.projectId)
+            await this.workflow.project(dto.projectId, currentUser);
+        else if (currentUser.role !== 'admin')
+            throw new common_1.ForbiddenException('Select an assigned project');
+        const assignedTester = dto.testerId ?? dto.userId;
+        if (assignedTester && assignedTester !== currentUser.id && currentUser.role !== 'admin')
+            throw new common_1.ForbiddenException('Cannot assign another tester');
+        return this.workflow.transaction(async (db) => {
+            const targetProjectId = dto.projectId || null;
+            let testId = dto.testId || await this.generateTestId(targetProjectId || undefined, dto.module);
+            let existingResult;
+            if (targetProjectId) {
+                existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" = $2', [testId, targetProjectId]);
+            }
+            else if (dto.module) {
+                existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND LOWER(TRIM(module)) = LOWER(TRIM($2))', [testId, dto.module]);
+            }
+            else {
+                existingResult = await db.query('SELECT id FROM test_cases WHERE "testId" = $1 AND "projectId" IS NULL', [testId]);
+            }
+            if (existingResult.rows.length > 0) {
+                const nextTcId = await this.generateTestId(targetProjectId || undefined, dto.module);
+                testId = dto.status === 'failed' ? nextTcId.replace(/^TC-/, 'BUG-') : nextTcId;
+            }
+            const stepsStr = JSON.stringify(dto.steps || []);
+            const authUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
+            const targetTesterId = dto.testerId ?? dto.userId ?? (authUserId ? Number(authUserId) : null);
+            const severity = dto.severity || (dto.status === 'failed' ? 'medium' : null);
+            const stmt = `
       INSERT INTO test_cases (
         "testId", module, "pageName", scenario, "preConditions", steps,
         "expectedResult", "actualResult", priority, status, severity, notes,
@@ -74,25 +82,29 @@ let TestCasesService = class TestCasesService {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id
     `;
-        const result = await db.query(stmt, [
-            testId,
-            dto.module,
-            dto.pageName || null,
-            dto.scenario,
-            dto.preConditions || null,
-            stepsStr,
-            dto.expectedResult,
-            dto.actualResult || null,
-            dto.priority || 'medium',
-            dto.status || 'pending',
-            severity,
-            dto.notes || null,
-            executedAt,
-            targetTesterId,
-            dto.projectId || null,
-        ]);
-        const newId = result.rows[0].id;
-        return this.findOne(newId);
+            const result = await db.query(stmt, [
+                testId,
+                dto.module,
+                dto.pageName || null,
+                dto.scenario,
+                dto.preConditions || null,
+                stepsStr,
+                dto.expectedResult,
+                null,
+                dto.priority || 'medium',
+                'pending',
+                severity,
+                null,
+                null,
+                targetTesterId,
+                dto.projectId || null,
+            ]);
+            const newId = result.rows[0].id;
+            const tc = (await db.query('SELECT * FROM test_cases WHERE id=$1', [newId])).rows[0];
+            if (dto.status && (dto.status !== 'pending' || dto.actualResult || dto.notes))
+                await this.workflow.appendCompatibility(db, tc, dto, currentUser);
+            return { id: newId };
+        }).then(result => this.findOne(result.id));
     }
     async findAll(query, currentUser) {
         const db = this.databaseService.db;
@@ -134,7 +146,7 @@ let TestCasesService = class TestCasesService {
         let pidx = 1;
         const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
         const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
-        const countSql = `SELECT COUNT(*) as total FROM test_cases tc ${whereClause}`;
+        const countSql = `SELECT COUNT(*) as total FROM test_cases_current tc ${whereClause}`;
         const totalResult = await db.query(countSql, params);
         const total = Number(totalResult.rows[0].total);
         const limitOffsetParams = [...params, limit, offset];
@@ -144,7 +156,7 @@ let TestCasesService = class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
-      FROM test_cases tc
+      FROM test_cases_current tc
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -184,7 +196,9 @@ let TestCasesService = class TestCasesService {
             },
         };
     }
-    async findOne(id) {
+    async findOne(id, currentUser) {
+        if (currentUser)
+            await this.workflow.caseAccess(id, currentUser);
         const db = this.databaseService.db;
         const sql = `
       SELECT
@@ -192,7 +206,7 @@ let TestCasesService = class TestCasesService {
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
-      FROM test_cases tc
+      FROM test_cases_current tc
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -223,57 +237,83 @@ let TestCasesService = class TestCasesService {
         };
     }
     async update(id, dto, currentUser) {
-        const db = this.databaseService.db;
-        await this.findOne(id);
-        let pidx = 1;
-        const fields = [];
-        const values = [];
-        const effectiveTesterId = dto.testerId ?? dto.userId;
-        if (effectiveTesterId !== undefined) {
-            fields.push(`"testerId" = $${pidx++}`);
-            values.push(effectiveTesterId);
-        }
-        const updaterUserId = currentUser?.id ||
-            currentUser?.userId ||
-            currentUser?.sub ||
-            dto.updatedById;
-        if (updaterUserId !== undefined && updaterUserId !== null) {
-            fields.push(`"updatedById" = $${pidx++}`);
-            values.push(Number(updaterUserId));
-        }
-        const allowed = [
-            'testId', 'module', 'pageName', 'scenario', 'preConditions',
-            'expectedResult', 'actualResult', 'priority', 'status', 'severity',
-            'notes', 'executedAt', 'projectId'
-        ];
-        for (const key of allowed) {
-            if (dto[key] !== undefined) {
-                fields.push(`"${key}" = $${pidx++}`);
-                values.push(dto[key]);
+        await this.workflow.caseAccess(id, currentUser);
+        return this.workflow.transaction(async (db) => {
+            const original = (await db.query('SELECT * FROM test_cases WHERE id=$1 FOR UPDATE', [id])).rows[0];
+            await this.workflow.caseAccess(id, currentUser, db);
+            if (dto.projectId !== undefined && dto.projectId !== original.projectId) {
+                if (dto.projectId)
+                    await this.workflow.project(dto.projectId, currentUser, db);
+                else if (currentUser.role !== 'admin')
+                    throw new common_1.ForbiddenException('Select an assigned project');
+                const dependencies = await db.query('SELECT 1 FROM test_executions WHERE "testCaseId"=$1 UNION ALL SELECT 1 FROM test_cycle_items WHERE "testCaseId"=$1 LIMIT 1', [id]);
+                if (dependencies.rowCount)
+                    throw new common_1.ConflictException('Cannot move a test case with cycle or execution history');
             }
-        }
-        if (dto.steps !== undefined) {
-            fields.push(`steps = $${pidx++}`);
-            values.push(JSON.stringify(dto.steps));
-        }
-        if (fields.length > 0) {
-            fields.push(`"updatedAt" = NOW()`);
-            values.push(id);
-            const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = $${pidx}`;
-            await db.query(sql, values);
-        }
-        return this.findOne(id);
+            let pidx = 1;
+            const fields = [];
+            const values = [];
+            const effectiveTesterId = dto.testerId ?? dto.userId;
+            if (effectiveTesterId !== undefined) {
+                if (currentUser.role !== 'admin' && effectiveTesterId !== currentUser.id)
+                    throw new common_1.ForbiddenException('Cannot assign another tester');
+                fields.push(`"testerId" = $${pidx++}`);
+                values.push(effectiveTesterId);
+            }
+            const updaterUserId = currentUser?.id ||
+                currentUser?.userId ||
+                currentUser?.sub ||
+                dto.updatedById;
+            if (updaterUserId !== undefined && updaterUserId !== null) {
+                fields.push(`"updatedById" = $${pidx++}`);
+                values.push(Number(updaterUserId));
+            }
+            const allowed = [
+                'testId', 'module', 'pageName', 'scenario', 'preConditions',
+                'expectedResult', 'priority', 'severity', 'projectId'
+            ];
+            for (const key of allowed) {
+                if (dto[key] !== undefined) {
+                    fields.push(`"${key}" = $${pidx++}`);
+                    values.push(dto[key]);
+                }
+            }
+            if (dto.steps !== undefined) {
+                fields.push(`steps = $${pidx++}`);
+                values.push(JSON.stringify(dto.steps));
+            }
+            if (fields.length > 0) {
+                fields.push(`"updatedAt" = NOW()`);
+                values.push(id);
+                const sql = `UPDATE test_cases SET ${fields.join(', ')} WHERE id = $${pidx}`;
+                await db.query(sql, values);
+            }
+            const tc = (await db.query('SELECT * FROM test_cases WHERE id=$1', [id])).rows[0];
+            if (dto.status !== undefined || dto.actualResult !== undefined || dto.executedAt !== undefined || dto.notes !== undefined) {
+                const latest = (await db.query('SELECT * FROM test_executions WHERE "testCaseId"=$1 ORDER BY id DESC LIMIT 1', [id])).rows[0];
+                await this.workflow.appendCompatibility(db, tc, { status: dto.status ?? latest?.status ?? 'pending', actualResult: dto.actualResult ?? latest?.actualResult, notes: dto.notes ?? latest?.notes, executedAt: dto.executedAt }, currentUser);
+            }
+            return { id };
+        }).then(result => this.findOne(result.id));
     }
-    async remove(id) {
+    async remove(id, currentUser) {
+        await this.workflow.caseAccess(id, currentUser);
         const db = this.databaseService.db;
         await this.findOne(id);
-        await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+        try {
+            await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+        }
+        catch (error) {
+            if (['23503', '23001'].includes(error?.code))
+                throw new common_1.ConflictException('Test case has cycle or execution history and cannot be deleted');
+            throw error;
+        }
         return { message: `Test case #${id} deleted successfully` };
     }
 };
 exports.TestCasesService = TestCasesService;
 exports.TestCasesService = TestCasesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [database_service_1.DatabaseService])
+    __metadata("design:paramtypes", [database_service_1.DatabaseService, workflow_service_1.WorkflowService])
 ], TestCasesService);
 //# sourceMappingURL=test-cases.service.js.map

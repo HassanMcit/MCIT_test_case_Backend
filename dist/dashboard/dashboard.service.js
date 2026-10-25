@@ -29,7 +29,7 @@ let DashboardService = class DashboardService {
             COALESCE(SUM(CASE WHEN tc.status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
             COALESCE(SUM(CASE WHEN tc.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
             COALESCE(SUM(CASE WHEN tc.status != 'passed' AND tc.status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-          FROM test_cases tc
+          FROM test_cases_current tc
           WHERE tc."projectId" = $1
             OR (tc."projectId" IS NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = $1))
           `, [projectId]);
@@ -41,7 +41,7 @@ let DashboardService = class DashboardService {
             COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
             COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
             COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-          FROM test_cases
+          FROM test_cases_current
         `);
             }
             const projectRow = await db.query('SELECT COUNT(*) as count FROM projects');
@@ -73,7 +73,7 @@ let DashboardService = class DashboardService {
           COUNT(DISTINCT CASE WHEN tc.status = 'passed' THEN tc.id END) as passed,
           COUNT(DISTINCT CASE WHEN tc.status = 'failed' THEN tc.id END) as failed,
           COUNT(DISTINCT CASE WHEN tc.status != 'passed' AND tc.status != 'failed' THEN tc.id END) as pending
-        FROM test_cases tc
+        FROM test_cases_current tc
         INNER JOIN project_assignments pa ON (
           (tc."projectId" IS NOT NULL AND tc."projectId" = pa."projectId")
           OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = pa."projectId"))
@@ -118,7 +118,7 @@ let DashboardService = class DashboardService {
               COALESCE(SUM(CASE WHEN tc.status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
               COALESCE(SUM(CASE WHEN tc.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
               COALESCE(SUM(CASE WHEN tc.status != 'passed' AND tc.status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-            FROM test_cases tc
+            FROM test_cases_current tc
             WHERE COALESCE(tc."executedAt", tc."createdAt") >= $1
               AND COALESCE(tc."executedAt", tc."createdAt") < $2
               AND (tc."projectId" = $3 OR (tc."projectId" IS NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = $3)))
@@ -130,7 +130,7 @@ let DashboardService = class DashboardService {
               COALESCE(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), 0) as passed,
               COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
               COALESCE(SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END), 0) as pending
-            FROM test_cases
+            FROM test_cases_current
             WHERE COALESCE("executedAt", "createdAt") >= $1
               AND COALESCE("executedAt", "createdAt") < $2
             `, [isoStart, isoEnd]);
@@ -148,7 +148,7 @@ let DashboardService = class DashboardService {
             COUNT(DISTINCT CASE WHEN tc.status = 'passed' THEN tc.id END) as passed,
             COUNT(DISTINCT CASE WHEN tc.status = 'failed' THEN tc.id END) as failed,
             COUNT(DISTINCT CASE WHEN tc.status != 'passed' AND tc.status != 'failed' THEN tc.id END) as pending
-          FROM test_cases tc
+          FROM test_cases_current tc
           INNER JOIN project_assignments pa ON (
             (tc."projectId" IS NOT NULL AND tc."projectId" = pa."projectId")
             OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = pa."projectId"))
@@ -177,7 +177,7 @@ let DashboardService = class DashboardService {
             if (projectId && projectId > 0) {
                 rowsResult = await db.query(`
           SELECT COALESCE(tc.severity, tc.priority, 'medium') as level, COUNT(*) as count
-          FROM test_cases tc
+          FROM test_cases_current tc
           WHERE tc.status = 'failed'
             AND (tc."projectId" = $1 OR (tc."projectId" IS NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = $1)))
           GROUP BY COALESCE(tc.severity, tc.priority, 'medium')
@@ -186,7 +186,7 @@ let DashboardService = class DashboardService {
             else {
                 rowsResult = await db.query(`
           SELECT COALESCE(severity, priority, 'medium') as level, COUNT(*) as count
-          FROM test_cases
+          FROM test_cases_current
           WHERE status = 'failed'
           GROUP BY COALESCE(severity, priority, 'medium')
         `);
@@ -201,7 +201,7 @@ let DashboardService = class DashboardService {
             }
             rowsResult = await db.query(`
         SELECT COALESCE(tc.severity, tc.priority, 'medium') as level, COUNT(DISTINCT tc.id) as count
-        FROM test_cases tc
+        FROM test_cases_current tc
         INNER JOIN project_assignments pa ON (
           (tc."projectId" IS NOT NULL AND tc."projectId" = pa."projectId")
           OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p WHERE p.id = pa."projectId"))

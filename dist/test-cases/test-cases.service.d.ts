@@ -1,5 +1,6 @@
 import { DatabaseService } from '../database/database.service';
 import { CreateTestCaseDto, UpdateTestCaseDto } from './dto/test-case.dto';
+import { WorkflowService } from '../workflow/workflow.service';
 interface QueryFilter {
     page?: number;
     limit?: number;
@@ -11,7 +12,8 @@ interface QueryFilter {
 }
 export declare class TestCasesService {
     private readonly databaseService;
-    constructor(databaseService: DatabaseService);
+    private readonly workflow;
+    constructor(databaseService: DatabaseService, workflow: WorkflowService);
     generateTestId(projectId?: number, module?: string): Promise<string>;
     getNextTestId(projectId?: number, module?: string): Promise<{
         nextId: string;
@@ -26,9 +28,9 @@ export declare class TestCasesService {
             totalPages: number;
         };
     }>;
-    findOne(id: number): Promise<any>;
+    findOne(id: number, currentUser?: any): Promise<any>;
     update(id: number, dto: UpdateTestCaseDto, currentUser?: any): Promise<any>;
-    remove(id: number): Promise<{
+    remove(id: number, currentUser: any): Promise<{
         message: string;
     }>;
 }

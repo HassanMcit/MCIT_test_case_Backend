@@ -99,8 +99,8 @@ export class TestCasesController {
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Test case found' })
   @ApiResponse({ status: 404, description: 'Test case not found' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.testCasesService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.testCasesService.findOne(id, req.user);
   }
 
   /**
@@ -130,7 +130,7 @@ export class TestCasesController {
   @ApiParam({ name: 'id', type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Test case deleted' })
   @ApiResponse({ status: 404, description: 'Test case not found' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.testCasesService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.testCasesService.remove(id, req.user);
   }
 }

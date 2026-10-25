@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as bcrypt from 'bcryptjs';
+import { migrateWorkflow } from './workflow-migration';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +22,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.initTables();
+    await migrateWorkflow(this.db);
     // await this.runMigrations();
     await this.seedInitialData();
   }

@@ -46,6 +46,7 @@ const pg_1 = require("pg");
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("node:fs"));
 const bcrypt = __importStar(require("bcryptjs"));
+const workflow_migration_1 = require("./workflow-migration");
 let DatabaseService = DatabaseService_1 = class DatabaseService {
     async onModuleInit() {
         this.db = new pg_1.Pool({
@@ -59,6 +60,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             console.error('❌ Failed to connect to PostgreSQL', err);
         }
         await this.initTables();
+        await (0, workflow_migration_1.migrateWorkflow)(this.db);
         await this.seedInitialData();
     }
     async onModuleDestroy() {

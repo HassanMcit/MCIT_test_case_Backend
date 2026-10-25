@@ -24,6 +24,8 @@ var Status;
     Status["PASSED"] = "passed";
     Status["FAILED"] = "failed";
     Status["PENDING"] = "pending";
+    Status["BLOCKED"] = "blocked";
+    Status["SKIPPED"] = "skipped";
 })(Status || (exports.Status = Status = {}));
 class CreateTestCaseDto {
 }
@@ -115,7 +117,7 @@ __decorate([
         description: 'Execution status (passed | failed | pending)',
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Matches)(/^(passed|failed|pending)$/, {
+    (0, class_validator_1.Matches)(/^(passed|failed|pending|blocked|skipped)$/, {
         message: 'الحالة يجب أن تكون إما: passed أو failed أو pending',
     }),
     __metadata("design:type", String)

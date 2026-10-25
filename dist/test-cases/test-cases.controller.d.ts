@@ -16,9 +16,9 @@ export declare class TestCasesController {
     getNextId(projectId?: number, module?: string): Promise<{
         nextId: string;
     }>;
-    findOne(id: number): Promise<any>;
+    findOne(id: number, req: any): Promise<any>;
     update(req: any, id: number, dto: UpdateTestCaseDto): Promise<any>;
-    remove(id: number): Promise<{
+    remove(id: number, req: any): Promise<{
         message: string;
     }>;
 }

@@ -31,14 +31,14 @@ let TestCasesController = class TestCasesController {
     getNextId(projectId, module) {
         return this.testCasesService.getNextTestId(projectId ? Number(projectId) : undefined, module);
     }
-    findOne(id) {
-        return this.testCasesService.findOne(id);
+    findOne(id, req) {
+        return this.testCasesService.findOne(id, req.user);
     }
     update(req, id, dto) {
         return this.testCasesService.update(id, dto, req?.user);
     }
-    remove(id) {
-        return this.testCasesService.remove(id);
+    remove(id, req) {
+        return this.testCasesService.remove(id, req.user);
     }
 };
 exports.TestCasesController = TestCasesController;
@@ -97,8 +97,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Test case found' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Test case not found' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "findOne", null);
 __decorate([
@@ -122,8 +123,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Test case deleted' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Test case not found' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "remove", null);
 exports.TestCasesController = TestCasesController = __decorate([

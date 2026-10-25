@@ -39,7 +39,7 @@ let ProjectsService = class ProjectsService {
             ? Number(query.assignedToUserId)
             : null;
         let joinClause = '';
-        if (targetUserId) {
+        if (targetUserId && currentUser?.role === 'admin') {
             joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
             conditions.push('pa."userId" = ?');
             params.push(targetUserId);
@@ -74,7 +74,7 @@ let ProjectsService = class ProjectsService {
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status != 'passed' AND status != 'failed' THEN 1 ELSE 0 END) as pending
-      FROM test_cases
+      FROM test_cases_current
       WHERE "projectId" = $1 OR ("projectId" IS NULL AND LOWER(TRIM(module)) = LOWER(TRIM($2)))
     `;
         const assignedUsersSql = `
@@ -134,7 +134,7 @@ let ProjectsService = class ProjectsService {
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name
-      FROM test_cases tc
+      FROM test_cases_current tc
       LEFT JOIN users u ON tc."testerId" = u.id
       WHERE tc."projectId" = $1
       ORDER BY tc.id DESC
@@ -164,7 +164,7 @@ let ProjectsService = class ProjectsService {
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
-      FROM test_cases
+      FROM test_cases_current
       WHERE "projectId" = $1
     `, [id]);
         const statsRow = statsResult.rows[0];
@@ -203,6 +203,9 @@ let ProjectsService = class ProjectsService {
     async remove(id) {
         const db = this.databaseService.db;
         const project = await this.findOne(id);
+        const history = await db.query('SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 LIMIT 1', [id]);
+        if (history.rowCount)
+            throw new common_1.BadRequestException('Project has releases or execution history. Archive it instead.');
         if (project.assignedUsers && project.assignedUsers.length > 0) {
             throw new common_1.BadRequestException('لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.');
         }

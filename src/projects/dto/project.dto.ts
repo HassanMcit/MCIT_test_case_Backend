@@ -30,7 +30,10 @@ export class CreateProjectDto {
   @Matches(/(Z|[+-]\d{2}:\d{2})$/)
   endAt: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Designated user ID (Tester or Admin); legacy field name retained for compatibility',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

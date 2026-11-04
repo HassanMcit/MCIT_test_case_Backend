@@ -75,7 +75,8 @@ before(async () => {
   await query(`INSERT INTO users(id,name,email,password,role) VALUES
     (1,'Admin','admin@example.test','unused','admin'),
     (2,'Tester','tester@example.test','unused','tester'),
-    (3,'Other','other@example.test','unused','tester');
+    (3,'Other','other@example.test','unused','tester'),
+    (4,'Ineligible','excluded@example.test','unused','user');
     INSERT INTO projects(name) VALUES('Legacy unscheduled project');`);
   assert.equal((await migrateProjectDeadlines(adapter, true)).dryRun, true);
   assert.equal(
@@ -145,7 +146,7 @@ void test('HTTP create without tester; required dates, ordering, offset, and eli
     valid({ startAt: '2026-01-01T08:00:00' }),
     valid({ endAt: 'not-a-date' }),
     valid({ assignedTesterId: 999 }),
-    valid({ assignedTesterId: 1 }),
+    valid({ assignedTesterId: 4 }),
   ]) {
     await request(app.getHttpServer())
       .post('/api/projects')
@@ -348,4 +349,36 @@ void test('deadline SSE event is scoped to its recipient; persistence failures r
     assert.equal(other.some(e => e.type === 'NOTIFICATION' && e.payload.projectId === p.id), false);
     assert.equal((await notes(p.id)).length, 1);
   } finally { a.unsubscribe(); b.unsubscribe(); }
+});
+
+void test('Tester and Admin are equally eligible; assignment never grants administrative privileges', async () => {
+  const list = await request(app.getHttpServer()).get('/api/users/assignable').set('Authorization', auth(1)).expect(200);
+  assert.deepEqual(list.body.map(u => u.id).sort(), [1,2,3]);
+  assert.equal(list.body.find(u => u.id === 1).role, 'admin');
+  assert.equal(list.body.find(u => u.id === 2).role, 'tester');
+  await request(app.getHttpServer()).get('/api/users/assignable').set('Authorization', auth(2, 'tester')).expect(403);
+  await request(app.getHttpServer()).get('/api/users/assignable').expect(401);
+  const legacyBefore = (await db.db.query('SELECT * FROM projects WHERE id=1')).rows[0];
+  const testerBefore = (await db.db.query('SELECT id,name,email,role FROM users WHERE id=2')).rows[0];
+  const adminBefore = (await db.db.query('SELECT id,name,email,role FROM users WHERE id=1')).rows[0];
+  for (const recipient of [1,2]) {
+    const created = await request(app.getHttpServer()).post('/api/projects').set('Authorization', auth(1)).send(valid({assignedTesterId:recipient})).expect(201);
+    const id=created.body.id;
+    assert.equal(created.body.assignedTesterId, recipient);
+    await worker.deliverDue(); await new ProjectDeadlinesService(db, users).deliverDue();
+    assert.equal((await deadlines(id)).length, 1);
+    assert.equal((await notes(id))[0].userId, recipient);
+    const inbox=await users.getNotifications(recipient);
+    assert.ok(inbox.notifications.some(n=>n.projectId===id && n.titleEn?.startsWith('Project deadline')));
+    await request(app.getHttpServer()).patch('/api/projects/'+id).set('Authorization', auth(2,'tester')).send({assignedTesterId:1}).expect(403);
+    const next=recipient===1?2:1;
+    await request(app.getHttpServer()).patch('/api/projects/'+id).set('Authorization', auth(1)).send({assignedTesterId:next}).expect(200);
+    await worker.deliverDue(); assert.equal((await deadlines(id)).length,2);
+    await request(app.getHttpServer()).patch('/api/projects/'+id).set('Authorization', auth(1)).send({assignedTesterId:null}).expect(200);
+    await worker.deliverDue(); assert.equal((await deadlines(id)).length,2);
+    assert.equal((await projects.findOne(id)).assignedTesterId,null);
+  }
+  assert.deepEqual((await db.db.query('SELECT * FROM projects WHERE id=1')).rows[0],legacyBefore);
+  assert.deepEqual((await db.db.query('SELECT id,name,email,role FROM users WHERE id=2')).rows[0],testerBefore);
+  assert.deepEqual((await db.db.query('SELECT id,name,email,role FROM users WHERE id=1')).rows[0],adminBefore);
 });

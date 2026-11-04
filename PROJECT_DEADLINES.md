@@ -7,9 +7,13 @@ schedules and designated testers. No production migration was run during develop
 
 New project requests require ISO 8601 `startAt`/`endAt` with UTC offsets and
 start before end. Both columns use TIMESTAMPTZ. Optional `assignedTesterId`
-accepts null; non-null values must identify a tester. Admin-only existing
+accepts null; non-null values must identify a Tester or Admin. Admin-only existing
 project POST/PATCH endpoints enforce authorization, and PATCH validates merged
-date ranges. `GET /api/users/testers` is admin-only and returns names/IDs.
+date ranges. `GET /api/users/assignable` is admin-only and returns IDs, names and
+actual database roles for eligible Tester/Admin users. The earlier
+`GET /api/users/testers` remains tester-only for compatibility. The legacy field
+name `assignedTesterId` is retained to avoid a schema/data migration. No role or
+administrative privilege is granted by assigning a user to a project.
 
 The existing `project_assignments` table remains the membership authority. A
 `primaryManaged` marker distinguishes memberships created by the designated

@@ -116,10 +116,18 @@ export class UsersController {
     return this.usersService.findAllBasic(req);
   }
 
-  /**
-   * GET /api/users/my-assigned-projects
-   * For the logged-in User: get all projects assigned to them
-   */
+  /** Minimal project-assignment directory; existing admin permissions apply. */
+  @Get('assignable')
+  @ApiOperation({
+    summary: 'Eligible project users (Tester or Admin), admin access required',
+  })
+  eligibleProjectUsers(@Request() req: any) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
+    return this.usersService.eligibleProjectUsers();
+  }
+
   @Get('testers')
   eligibleTesters(@Request() req: any) {
     if (req.user?.role !== 'admin') throw new ForbiddenException('Admin access required');

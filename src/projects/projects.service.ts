@@ -60,12 +60,12 @@ export class ProjectsService {
           : dto.assignedTesterId;
       if (testerId !== null) {
         const tester = await client.query(
-          "SELECT id FROM users WHERE id=$1 AND role='tester' FOR SHARE",
+          "SELECT id FROM users WHERE id=$1 AND role IN ('tester','admin') FOR SHARE",
           [testerId],
         );
         if (!tester.rowCount)
           throw new BadRequestException(
-            'Select an eligible tester / اختر مختبراً مؤهلاً',
+            'Select an eligible Tester or Admin / اختر مستخدماً بدور مختبر أو مدير',
           );
       }
       const values = [

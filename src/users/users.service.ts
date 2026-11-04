@@ -260,7 +260,14 @@ export class UsersService {
     }));
   }
 
-  // ── GET /api/users/all (Public - all users, all roles) ─────────────
+  // Minimal authenticated project-assignment directory; roles come from the DB.
+  async eligibleProjectUsers() {
+    const result = await this.databaseService.db.query(
+      "SELECT id,name,role FROM users WHERE role IN ('tester','admin') ORDER BY name,id",
+    );
+    return result.rows;
+  }
+
   async eligibleTesters() {
     return (await this.databaseService.db.query("SELECT id,name FROM users WHERE role='tester' ORDER BY name,id")).rows;
   }

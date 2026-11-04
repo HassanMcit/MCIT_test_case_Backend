@@ -51,6 +51,10 @@ export class UsersService {
     });
   }
 
+  publishNotification(notification: { userId: number; title: string; message: string }) {
+    this.notificationEvents$.next(notification);
+  }
+
   async serveUserPhoto(userId: number, res: any) {
     const db = this.databaseService.db;
     const result = await db.query('SELECT id, name, photo, "profileImage" FROM users WHERE id = $1', [userId]);
@@ -257,6 +261,10 @@ export class UsersService {
   }
 
   // ── GET /api/users/all (Public - all users, all roles) ─────────────
+  async eligibleTesters() {
+    return (await this.databaseService.db.query("SELECT id,name FROM users WHERE role='tester' ORDER BY name,id")).rows;
+  }
+
   async findAllBasic(req?: any) {
     const db = this.databaseService.db;
     const usersResult = await db.query('SELECT id, name, email, role, photo, "profileImage" FROM users ORDER BY name ASC');
@@ -535,7 +543,7 @@ export class UsersService {
     const db = this.databaseService.db;
     try {
       const res = await db.query(
-        `SELECT id, "userId", title, message, "projectId", "read", "createdAt"
+        `SELECT id, "userId", title, message, "titleEn", "messageEn", link, "projectId", "read", "createdAt"
          FROM notifications
          WHERE "userId" = $1
          ORDER BY "createdAt" DESC

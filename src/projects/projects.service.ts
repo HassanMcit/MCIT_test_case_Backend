@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
@@ -8,19 +13,121 @@ export class ProjectsService {
 
   // ── POST /api/projects ───────────────────────────────────────────
   async create(dto: CreateProjectDto) {
-    const db = this.databaseService.db;
-    const result = await db.query(`
-      INSERT INTO projects (name, description, environment, status)
-      VALUES ($1, $2, $3, $4) RETURNING id
-    `, [
-      dto.name,
-      dto.description || null,
-      dto.environment || 'staging',
-      dto.status || 'active',
-    ]);
+    const id = await this.saveProject(null, dto);
+    return this.findOne(id);
+  }
 
-    const newId = result.rows[0].id;
-    return this.findOne(newId);
+  private async saveProject(
+    id: number | null,
+    dto: CreateProjectDto | UpdateProjectDto,
+  ) {
+    const client = await this.databaseService.db.connect();
+    try {
+      await client.query('BEGIN');
+      const previous =
+        id === null
+          ? null
+          : (
+              await client.query(
+                'SELECT * FROM projects WHERE id=$1 FOR UPDATE',
+                [id],
+              )
+            ).rows[0];
+      if (id !== null && !previous)
+        throw new NotFoundException('Project not found');
+      const startAt =
+        dto.startAt === undefined ? previous?.startAt : dto.startAt;
+      const endAt = dto.endAt === undefined ? previous?.endAt : dto.endAt;
+      if (
+        (startAt || endAt) &&
+        (!startAt ||
+          !endAt ||
+          !Number.isFinite(new Date(startAt).getTime()) ||
+          !Number.isFinite(new Date(endAt).getTime()) ||
+          new Date(startAt) >= new Date(endAt))
+      ) {
+        throw new BadRequestException(
+          'Start must be earlier than end / يجب أن يكون وقت البداية قبل النهاية',
+        );
+      }
+      if (id === null && (!startAt || !endAt))
+        throw new BadRequestException(
+          'Start and end are required / وقت البداية والنهاية مطلوبان',
+        );
+      const testerId =
+        dto.assignedTesterId === undefined
+          ? (previous?.assignedTesterId ?? null)
+          : dto.assignedTesterId;
+      if (testerId !== null) {
+        const tester = await client.query(
+          "SELECT id FROM users WHERE id=$1 AND role='tester' FOR SHARE",
+          [testerId],
+        );
+        if (!tester.rowCount)
+          throw new BadRequestException(
+            'Select an eligible tester / اختر مختبراً مؤهلاً',
+          );
+      }
+      const values = [
+        dto.name ?? previous?.name,
+        dto.description ?? previous?.description ?? null,
+        dto.environment ?? previous?.environment ?? 'staging',
+        dto.status ?? previous?.status ?? 'active',
+        startAt ?? null,
+        endAt ?? null,
+        testerId,
+        dto.application ?? previous?.application ?? null,
+      ];
+      const result =
+        id === null
+          ? await client.query(
+              'INSERT INTO projects(name,description,environment,status,"startAt","endAt","assignedTesterId",application) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+              values,
+            )
+          : await client.query(
+              'UPDATE projects SET name=$1,description=$2,environment=$3,status=$4,"startAt"=$5,"endAt"=$6,"assignedTesterId"=$7,application=$8,"updatedAt"=NOW() WHERE id=$9 RETURNING id',
+              [...values, id],
+            );
+      const projectId = result.rows[0].id;
+      // Preserve independently assigned team members when the primary tester changes.
+      if (
+        previous?.assignedTesterId &&
+        previous.assignedTesterId !== testerId
+      ) {
+        await client.query(
+          'DELETE FROM project_assignments WHERE "projectId"=$1 AND "userId"=$2 AND "primaryManaged"=TRUE',
+          [projectId, previous.assignedTesterId],
+        );
+      }
+      if (testerId !== null) {
+        const assignment = await client.query(
+          'INSERT INTO project_assignments("projectId","userId","primaryManaged") VALUES($1,$2,TRUE) ON CONFLICT ("userId","projectId") DO NOTHING RETURNING id',
+          [projectId, testerId],
+        );
+        if (assignment.rowCount) {
+          await client.query(
+            `INSERT INTO notifications("userId",title,message,"titleEn","messageEn","projectId",link)
+            VALUES($1,$2,$3,$4,$5,$6,$7)`,
+            [
+              testerId,
+              'إسناد مشروع جديد: ' + values[0],
+              'تم إسناد المشروع إليك: ' + values[0],
+              'New project assignment: ' + values[0],
+              'You have been assigned to project ' + values[0],
+              projectId,
+              '/projects?project=' + projectId,
+            ],
+          );
+        }
+      }
+      await client.query('COMMIT');
+      return projectId;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // ── GET /api/projects ────────────────────────────────────────────
@@ -52,10 +159,15 @@ export class ProjectsService {
       joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
       conditions.push('pa."userId" = ?');
       params.push(targetUserId);
-    } else if (isAssignedToMe || (currentUser && currentUser.role !== 'admin')) {
+    } else if (
+      isAssignedToMe ||
+      (currentUser && currentUser.role !== 'admin')
+    ) {
       joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
       conditions.push('pa."userId" = ?');
-      params.push(Number(currentUser.id || currentUser.userId || currentUser.sub));
+      params.push(
+        Number(currentUser.id || currentUser.userId || currentUser.sub),
+      );
     }
 
     if (query.environment) {
@@ -73,8 +185,13 @@ export class ProjectsService {
     }
 
     let pidx = 1;
-    const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
-    const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
+    const numberedConditions = conditions.map((c) =>
+      c.replace(/\?/g, () => `$${pidx++}`),
+    );
+    const whereClause =
+      numberedConditions.length > 0
+        ? `WHERE ${numberedConditions.join(' AND ')}`
+        : '';
     const sql = `SELECT DISTINCT p.* FROM projects p ${joinClause} ${whereClause} ORDER BY p.id ASC`;
     const projectsResult = await db.query(sql, params);
     const projects = projectsResult.rows;
@@ -97,40 +214,46 @@ export class ProjectsService {
       ORDER BY pa."assignedAt" DESC
     `;
 
-    return Promise.all(projects.map(async (p) => {
-      const statsResult = await db.query(statsSql, [p.id, p.name || '']);
-      const statsRow = statsResult.rows[0] as {
-        total: string;
-        passed: string | null;
-        failed: string | null;
-        pending: string | null;
-      };
+    return Promise.all(
+      projects.map(async (p) => {
+        const statsResult = await db.query(statsSql, [p.id, p.name || '']);
+        const statsRow = statsResult.rows[0] as {
+          total: string;
+          passed: string | null;
+          failed: string | null;
+          pending: string | null;
+        };
 
-      const total = Number(statsRow.total) || 0;
-      const passed = Number(statsRow.passed) || 0;
-      const failed = Number(statsRow.failed) || 0;
-      const pending = Number(statsRow.pending) || 0;
-      const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
-      
-      const assignedUsersResult = await db.query(assignedUsersSql, [p.id]);
-      const assignedUsers = assignedUsersResult.rows.map((u: any) => ({
-        ...u,
-        photo: this.databaseService.resolvePhotoUrl(u),
-        profileImage: this.databaseService.resolvePhotoUrl(u),
-      }));
+        const total = Number(statsRow.total) || 0;
+        const passed = Number(statsRow.passed) || 0;
+        const failed = Number(statsRow.failed) || 0;
+        const pending = Number(statsRow.pending) || 0;
+        const successRate =
+          total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
-      return {
-        ...p,
-        stats: { total, passed, failed, pending, successRate },
-        assignedUsers,
-      };
-    }));
+        const assignedUsersResult = await db.query(assignedUsersSql, [p.id]);
+        const assignedUsers = assignedUsersResult.rows.map((u: any) => ({
+          ...u,
+          photo: this.databaseService.resolvePhotoUrl(u),
+          profileImage: this.databaseService.resolvePhotoUrl(u),
+        }));
+
+        return {
+          ...p,
+          stats: { total, passed, failed, pending, successRate },
+          assignedUsers,
+        };
+      }),
+    );
   }
 
   // ── GET /api/projects/:id ────────────────────────────────────────
   async findOne(id: number, currentUser?: any) {
     const db = this.databaseService.db;
-    const projectResult = await db.query('SELECT * FROM projects WHERE id = $1', [id]);
+    const projectResult = await db.query(
+      'SELECT * FROM projects WHERE id = $1',
+      [id],
+    );
     const project = projectResult.rows[0] as any;
 
     if (!project) {
@@ -140,27 +263,31 @@ export class ProjectsService {
     if (currentUser && currentUser.role !== 'admin') {
       const checkResult = await db.query(
         'SELECT 1 FROM project_assignments WHERE "projectId" = $1 AND "userId" = $2',
-        [id, currentUser.id || currentUser.userId || currentUser.sub]
+        [id, currentUser.id || currentUser.userId || currentUser.sub],
       );
       if (checkResult.rows.length === 0) {
         throw new ForbiddenException('غير مصرح لك بالوصول لهذا المشروع');
       }
     }
 
-    const assignedUsersResult = await db.query(`
+    const assignedUsersResult = await db.query(
+      `
       SELECT u.id, u.id as "userId", u.name, u.email, u.role, u.photo, u."profileImage", pa."assignedAt"
       FROM users u
       INNER JOIN project_assignments pa ON u.id = pa."userId"
       WHERE pa."projectId" = $1
       ORDER BY pa."assignedAt" DESC
-    `, [id]);
+    `,
+      [id],
+    );
     const assignedUsers = assignedUsersResult.rows.map((u: any) => ({
       ...u,
       photo: this.databaseService.resolvePhotoUrl(u),
       profileImage: this.databaseService.resolvePhotoUrl(u),
     }));
 
-    const recentTestCasesResult = await db.query(`
+    const recentTestCasesResult = await db.query(
+      `
       SELECT
         tc.*,
         u.id as tester_id, u.name as tester_name
@@ -169,23 +296,32 @@ export class ProjectsService {
       WHERE tc."projectId" = $1
       ORDER BY tc.id DESC
       LIMIT 5
-    `, [id]);
+    `,
+      [id],
+    );
     const recentTestCases = recentTestCasesResult.rows;
 
     const formattedTCs = recentTestCases.map((tc) => {
       const { tester_id, tester_name, ...base } = tc;
       let steps = [];
-      try { steps = JSON.parse(base.steps || '[]'); } catch { steps = []; }
+      try {
+        steps = JSON.parse(base.steps || '[]');
+      } catch {
+        steps = [];
+      }
       return {
         ...base,
         steps,
         testerId: tester_id || null,
         userId: tester_id || null,
-        tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name } : null,
+        tester: tester_id
+          ? { id: tester_id, userId: tester_id, name: tester_name }
+          : null,
       };
     });
 
-    const statsResult = await db.query(`
+    const statsResult = await db.query(
+      `
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
@@ -193,14 +329,17 @@ export class ProjectsService {
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM test_cases_current
       WHERE "projectId" = $1
-    `, [id]);
+    `,
+      [id],
+    );
     const statsRow = statsResult.rows[0] as any;
 
     const total = Number(statsRow.total) || 0;
     const passed = Number(statsRow.passed) || 0;
     const failed = Number(statsRow.failed) || 0;
     const pending = Number(statsRow.pending) || 0;
-    const successRate = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+    const successRate =
+      total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
 
     return {
       ...project,
@@ -212,27 +351,7 @@ export class ProjectsService {
 
   // ── PATCH /api/projects/:id ──────────────────────────────────────
   async update(id: number, dto: UpdateProjectDto) {
-    const db = this.databaseService.db;
-    await this.findOne(id);
-
-    const fields: string[] = [];
-    const values: any[] = [];
-
-    let pidx = 1;
-    const allowed = ['name', 'description', 'environment', 'status'];
-    for (const key of allowed) {
-      if ((dto as any)[key] !== undefined) {
-        fields.push(`"${key}" = $${pidx++}`);
-        values.push((dto as any)[key]);
-      }
-    }
-
-    if (fields.length > 0) {
-      fields.push(`"updatedAt" = NOW()`);
-      values.push(id);
-      await db.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${pidx}`, values);
-    }
-
+    await this.saveProject(id, dto);
     return this.findOne(id);
   }
 
@@ -240,8 +359,14 @@ export class ProjectsService {
   async remove(id: number) {
     const db = this.databaseService.db;
     const project = await this.findOne(id);
-    const history = await db.query('SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 LIMIT 1',[id]);
-    if (history.rowCount) throw new BadRequestException('Project has releases or execution history. Archive it instead.');
+    const history = await db.query(
+      'SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 LIMIT 1',
+      [id],
+    );
+    if (history.rowCount)
+      throw new BadRequestException(
+        'Project has releases or execution history. Archive it instead.',
+      );
 
     if (project.assignedUsers && project.assignedUsers.length > 0) {
       throw new BadRequestException(
@@ -249,8 +374,13 @@ export class ProjectsService {
       );
     }
 
-    await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [id]);
-    await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
+    await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [
+      id,
+    ]);
+    await db.query(
+      'UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1',
+      [id],
+    );
     await db.query('DELETE FROM projects WHERE id = $1', [id]);
     return { message: `تم حذف المشروع رقم #${id} بنجاح` };
   }

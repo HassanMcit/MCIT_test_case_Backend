@@ -120,6 +120,12 @@ export class UsersController {
    * GET /api/users/my-assigned-projects
    * For the logged-in User: get all projects assigned to them
    */
+  @Get('testers')
+  eligibleTesters(@Request() req: any) {
+    if (req.user?.role !== 'admin') throw new ForbiddenException('Admin access required');
+    return this.usersService.eligibleTesters();
+  }
+
   @Get('my-assigned-projects')
   @ApiOperation({ summary: 'Get projects assigned to the currently logged-in user' })
   @ApiResponse({ status: 200, description: 'Array of assigned projects with test metrics' })

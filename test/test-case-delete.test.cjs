@@ -30,7 +30,7 @@ function setup(hasCycle = false, denied = false) {
   return { service: new moduleExports.TestCasesService({ db }, workflow), queries };
 }
 
-test('standalone deletion removes legacy/compatibility results before the definition', async () => {
+void test('standalone deletion removes legacy/compatibility results before the definition', async () => {
   const { service, queries } = setup();
   await service.remove(42, { id: 1, role: 'admin' });
   const deletes = queries.filter(({ sql }) => sql.startsWith('DELETE'));
@@ -42,13 +42,13 @@ test('standalone deletion removes legacy/compatibility results before the defini
   for (const query of queries) assert.deepEqual(Array.from(query.values), [42]);
 });
 
-test('cycle history still prevents deletion of any records', async () => {
+void test('cycle history still prevents deletion of any records', async () => {
   const { service, queries } = setup(true);
   await assert.rejects(service.remove(42, { id: 1, role: 'admin' }), (error) => error.status === 409);
   assert.equal(queries.some(({ sql }) => sql.startsWith('DELETE')), false);
 });
 
-test('unauthorized deletion does not write to the database', async () => {
+void test('unauthorized deletion does not write to the database', async () => {
   const { service, queries } = setup(false, true);
   await assert.rejects(service.remove(42, { id: 2, role: 'tester' }), /Access denied/);
   assert.equal(queries.length, 0);

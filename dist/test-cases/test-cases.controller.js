@@ -17,9 +17,18 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const test_cases_service_1 = require("./test-cases.service");
 const test_case_dto_1 = require("./dto/test-case.dto");
+const garage_import_dto_1 = require("./dto/garage-import.dto");
+const garage_import_service_1 = require("./garage-import.service");
 let TestCasesController = class TestCasesController {
-    constructor(testCasesService) {
+    constructor(testCasesService, garageImport) {
         this.testCasesService = testCasesService;
+        this.garageImport = garageImport;
+    }
+    bulkImport(dto, req) {
+        return this.garageImport.run(dto, req.user);
+    }
+    verifyImport(batchHash, req) {
+        return this.garageImport.verify(batchHash, req.user);
     }
     create(req, dto) {
         return this.testCasesService.create(dto, req?.user);
@@ -42,6 +51,25 @@ let TestCasesController = class TestCasesController {
     }
 };
 exports.TestCasesController = TestCasesController;
+__decorate([
+    (0, common_1.Post)('bulk-import/garage'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin-only Garage workbook preview or atomic import' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [garage_import_dto_1.GarageImportDto, Object]),
+    __metadata("design:returntype", void 0)
+], TestCasesController.prototype, "bulkImport", null);
+__decorate([
+    (0, common_1.Get)('bulk-import/garage/:batchHash'),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin-only verification against persisted Garage source data' }),
+    __param(0, (0, common_1.Param)('batchHash')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], TestCasesController.prototype, "verifyImport", null);
 __decorate([
     (0, common_1.Post)(),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new test case' }),
@@ -132,6 +160,7 @@ exports.TestCasesController = TestCasesController = __decorate([
     (0, swagger_1.ApiTags)('Test Cases'),
     (0, swagger_1.ApiBearerAuth)('access-token'),
     (0, common_1.Controller)('test-cases'),
-    __metadata("design:paramtypes", [test_cases_service_1.TestCasesService])
+    __metadata("design:paramtypes", [test_cases_service_1.TestCasesService,
+        garage_import_service_1.GarageImportService])
 ], TestCasesController);
 //# sourceMappingURL=test-cases.controller.js.map

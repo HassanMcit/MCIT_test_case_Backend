@@ -2,6 +2,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
 const { PGlite } = require(
   process.env.PGLITE_MODULE ||
     path.resolve(
@@ -18,6 +19,14 @@ const { DatabaseService } = require('../dist/database/database.service');
 const { DatabaseModule } = require('../dist/database/database.module');
 const { TestCasesModule } = require('../dist/test-cases/test-cases.module');
 const { ProjectsService } = require('../dist/projects/projects.service');
+const {
+  createCorsOptions,
+  PRODUCTION_FRONTEND_ORIGIN,
+} = require('../dist/security/cors');
+const {
+  collectBaseline,
+  connectionUsesTls,
+} = require('../scripts/production-baseline.cjs');
 const { JwtStrategy } = require('../dist/auth/jwt.strategy');
 const { JwtAuthGuard } = require('../dist/auth/jwt-auth.guard');
 const { migrateWorkflow } = require('../dist/database/workflow-migration');
@@ -63,6 +72,7 @@ const rows = Array.from({ length: 51 }, (_, i) => ({
 const post = (body) =>
   request(app.getHttpServer())
     .post(route)
+    .set('Origin', PRODUCTION_FRONTEND_ORIGIN)
     .set('Authorization', auth())
     .send(body);
 const count = async (table) =>
@@ -118,6 +128,7 @@ before(async () => {
     .useValue({ db: adapter })
     .compile();
   app = module.createNestApplication();
+  app.enableCors(createCorsOptions());
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
@@ -405,6 +416,92 @@ void test('atomic import persists all original content with correct ownership, n
       )
     ).rows[0].scenario,
     'Keep this record',
+  );
+});
+
+void test('Render runtime probe reads schema, owners, case fingerprint and RLS without modifying records', async () => {
+  const before = (await adapter.query('SELECT * FROM test_cases ORDER BY id'))
+    .rows;
+  const revision = (
+    await adapter.query('SELECT revision FROM app_cache_revision')
+  ).rows[0].revision;
+  const report = await collectBaseline(adapter, {
+    expectedCount: 52,
+    requireTls: false,
+  });
+  assert.deepEqual(report.blockers, []);
+  assert.equal(report.existingCases.count, 52);
+  assert.equal(report.garageCases.length, 51);
+  assert.equal(report.importMigrationApplied, true);
+  assert.equal(report.provenanceSecurity.rls, true);
+  assert.deepEqual(
+    report.owners.map((u) => u.id),
+    [20, 30],
+  );
+  assert.deepEqual(
+    (await adapter.query('SELECT * FROM test_cases ORDER BY id')).rows,
+    before,
+  );
+  assert.equal(
+    (await adapter.query('SELECT revision FROM app_cache_revision')).rows[0]
+      .revision,
+    revision,
+  );
+  const mismatch = await collectBaseline(adapter, {
+    expectedCount: 65,
+    requireTls: false,
+  });
+  assert.equal(
+    mismatch.blockers.some((b) => /case count/.test(b)),
+    true,
+  );
+  assert.equal(
+    mismatch.existingCases.fingerprint,
+    report.existingCases.fingerprint,
+  );
+  const noTls = await collectBaseline(adapter, { expectedCount: 52 });
+  assert.equal(
+    noTls.blockers.some((b) => /TLS/.test(b)),
+    true,
+  );
+  assert.equal(
+    connectionUsesTls({ connection: { stream: { encrypted: true } } }),
+    true,
+  );
+  assert.equal(connectionUsesTls({ connection: { stream: {} } }), false);
+  await adapter.query(
+    'CREATE ROLE isolated_baseline_reader; GRANT USAGE ON SCHEMA public TO isolated_baseline_reader; GRANT SELECT ON ALL TABLES IN SCHEMA public TO isolated_baseline_reader; SET ROLE isolated_baseline_reader;',
+  );
+  try {
+    const limited = await collectBaseline(adapter, {
+      expectedCount: 52,
+      requireTls: false,
+    });
+    assert.equal(limited.permissions.can_read_cases, true);
+    assert.equal(limited.permissions.can_insert_cases, false);
+    assert.equal(limited.permissions.can_update_cache, false);
+    assert.equal(
+      limited.blockers.some((b) => /privileges/.test(b)),
+      true,
+    );
+    assert.equal(limited.provenanceSecurity.backend_access, false);
+  } finally {
+    await adapter.query('RESET ROLE');
+  }
+  await adapter.query(
+    fs.readFileSync(
+      path.resolve(__dirname, '../scripts/production-baseline.sql'),
+      'utf8',
+    ),
+  );
+  assert.deepEqual(
+    (await adapter.query('SELECT * FROM test_cases ORDER BY id')).rows,
+    before,
+  );
+  assert.equal(
+    (await adapter.query('SELECT revision FROM app_cache_revision')).rows[0]
+      .revision,
+    revision,
   );
 });
 

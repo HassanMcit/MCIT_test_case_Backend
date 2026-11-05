@@ -99,6 +99,17 @@ let UsersController = class UsersController {
     findAllBasic(req) {
         return this.usersService.findAllBasic(req);
     }
+    eligibleProjectUsers(req) {
+        if (req.user?.role !== 'admin') {
+            throw new common_1.ForbiddenException('Admin access required');
+        }
+        return this.usersService.eligibleProjectUsers();
+    }
+    eligibleTesters(req) {
+        if (req.user?.role !== 'admin')
+            throw new common_1.ForbiddenException('Admin access required');
+        return this.usersService.eligibleTesters();
+    }
     getMyAssignedProjects(req) {
         return this.usersService.getMyAssignedProjects(req.user.id);
     }
@@ -203,6 +214,23 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "findAllBasic", null);
+__decorate([
+    (0, common_1.Get)('assignable'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Eligible project users (Tester or Admin), admin access required',
+    }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "eligibleProjectUsers", null);
+__decorate([
+    (0, common_1.Get)('testers'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "eligibleTesters", null);
 __decorate([
     (0, common_1.Get)('my-assigned-projects'),
     (0, swagger_1.ApiOperation)({ summary: 'Get projects assigned to the currently logged-in user' }),

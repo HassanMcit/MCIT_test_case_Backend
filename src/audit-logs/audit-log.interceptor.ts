@@ -173,13 +173,15 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     const startTime = Date.now();
 
+    // record() catches/logs its own failures. Keep audit I/O asynchronous so it
+    // does not delay or change the existing business response.
     return next.handle().pipe(
       tap({
         next: (resData) => {
-          this.record(req, resData, 'success', startTime);
+          void this.record(req, resData, 'success', startTime);
         },
         error: (err) => {
-          this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
+          void this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
         },
       })
     );

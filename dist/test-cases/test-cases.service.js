@@ -152,11 +152,12 @@ let TestCasesService = class TestCasesService {
         const limitOffsetParams = [...params, limit, offset];
         const dataSql = `
       SELECT
-        tc.*,
+        tc.*, to_jsonb(imported) AS "importMetadata",
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases_current tc
+      LEFT JOIN test_case_imports imported ON imported."testCaseId" = tc.id
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -202,11 +203,12 @@ let TestCasesService = class TestCasesService {
         const db = this.databaseService.db;
         const sql = `
       SELECT
-        tc.*,
+        tc.*, to_jsonb(imported) AS "importMetadata",
         u.id as tester_id, u.name as tester_name, u.email as tester_email,
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases_current tc
+      LEFT JOIN test_case_imports imported ON imported."testCaseId" = tc.id
       LEFT JOIN users u ON tc."testerId" = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
@@ -298,10 +300,21 @@ let TestCasesService = class TestCasesService {
     }
     async remove(id, currentUser) {
         await this.workflow.caseAccess(id, currentUser);
-        const db = this.databaseService.db;
-        await this.findOne(id);
         try {
-            await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+            await this.workflow.transaction(async (db) => {
+                await db.query('SELECT id FROM test_cases WHERE id = $1 FOR UPDATE', [id]);
+                await this.workflow.caseAccess(id, currentUser, db);
+                const dependencies = await db.query(`SELECT 1 FROM test_cycle_items WHERE "testCaseId" = $1
+           UNION ALL
+           SELECT 1 FROM test_executions WHERE "testCaseId" = $1
+             AND ("cycleItemId" IS NOT NULL OR source = 'cycle') LIMIT 1`, [id]);
+                if (dependencies.rowCount) {
+                    throw new common_1.ConflictException('Test case has cycle or execution history and cannot be deleted');
+                }
+                await db.query(`DELETE FROM test_executions WHERE "testCaseId" = $1
+           AND "cycleItemId" IS NULL AND source IN ('legacy', 'compatibility')`, [id]);
+                await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+            });
         }
         catch (error) {
             if (['23503', '23001'].includes(error?.code))

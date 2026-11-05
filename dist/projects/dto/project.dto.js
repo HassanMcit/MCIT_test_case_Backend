@@ -26,6 +26,34 @@ class CreateProjectDto {
 }
 exports.CreateProjectDto = CreateProjectDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ description: 'ISO 8601 timestamp with UTC offset' }),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    (0, class_validator_1.Matches)(/(Z|[+-]\d{2}:\d{2})$/),
+    __metadata("design:type", String)
+], CreateProjectDto.prototype, "startAt", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'ISO 8601 timestamp with UTC offset' }),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    (0, class_validator_1.Matches)(/(Z|[+-]\d{2}:\d{2})$/),
+    __metadata("design:type", String)
+], CreateProjectDto.prototype, "endAt", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        nullable: true,
+        description: 'Designated user ID (Tester or Admin); legacy field name retained for compatibility',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], CreateProjectDto.prototype, "assignedTesterId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateProjectDto.prototype, "application", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({
         example: 'البوابة الرقمية المصرية',
         description: 'Project name (validated with Regex)',
@@ -69,7 +97,21 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], CreateProjectDto.prototype, "status", void 0);
-class UpdateProjectDto extends (0, swagger_1.PartialType)(CreateProjectDto) {
+class UpdateProjectDto extends (0, swagger_1.PartialType)(CreateProjectDto, {
+    skipNullProperties: false,
+}) {
 }
 exports.UpdateProjectDto = UpdateProjectDto;
+__decorate([
+    (0, class_validator_1.ValidateIf)((_object, value) => value !== undefined),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    (0, class_validator_1.Matches)(/(Z|[+-]\d{2}:\d{2})$/),
+    __metadata("design:type", String)
+], UpdateProjectDto.prototype, "startAt", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((_object, value) => value !== undefined),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    (0, class_validator_1.Matches)(/(Z|[+-]\d{2}:\d{2})$/),
+    __metadata("design:type", String)
+], UpdateProjectDto.prototype, "endAt", void 0);
 //# sourceMappingURL=project.dto.js.map

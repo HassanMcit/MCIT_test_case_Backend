@@ -17,18 +17,81 @@ let ProjectsService = class ProjectsService {
         this.databaseService = databaseService;
     }
     async create(dto) {
-        const db = this.databaseService.db;
-        const result = await db.query(`
-      INSERT INTO projects (name, description, environment, status)
-      VALUES ($1, $2, $3, $4) RETURNING id
-    `, [
-            dto.name,
-            dto.description || null,
-            dto.environment || 'staging',
-            dto.status || 'active',
-        ]);
-        const newId = result.rows[0].id;
-        return this.findOne(newId);
+        const id = await this.saveProject(null, dto);
+        return this.findOne(id);
+    }
+    async saveProject(id, dto) {
+        const client = await this.databaseService.db.connect();
+        try {
+            await client.query('BEGIN');
+            const previous = id === null
+                ? null
+                : (await client.query('SELECT * FROM projects WHERE id=$1 FOR UPDATE', [id])).rows[0];
+            if (id !== null && !previous)
+                throw new common_1.NotFoundException('Project not found');
+            const startAt = dto.startAt === undefined ? previous?.startAt : dto.startAt;
+            const endAt = dto.endAt === undefined ? previous?.endAt : dto.endAt;
+            if ((startAt || endAt) &&
+                (!startAt ||
+                    !endAt ||
+                    !Number.isFinite(new Date(startAt).getTime()) ||
+                    !Number.isFinite(new Date(endAt).getTime()) ||
+                    new Date(startAt) >= new Date(endAt))) {
+                throw new common_1.BadRequestException('Start must be earlier than end / يجب أن يكون وقت البداية قبل النهاية');
+            }
+            if (id === null && (!startAt || !endAt))
+                throw new common_1.BadRequestException('Start and end are required / وقت البداية والنهاية مطلوبان');
+            const testerId = dto.assignedTesterId === undefined
+                ? (previous?.assignedTesterId ?? null)
+                : dto.assignedTesterId;
+            if (testerId !== null) {
+                const tester = await client.query("SELECT id FROM users WHERE id=$1 AND role IN ('tester','admin') FOR SHARE", [testerId]);
+                if (!tester.rowCount)
+                    throw new common_1.BadRequestException('Select an eligible Tester or Admin / اختر مستخدماً بدور مختبر أو مدير');
+            }
+            const values = [
+                dto.name ?? previous?.name,
+                dto.description ?? previous?.description ?? null,
+                dto.environment ?? previous?.environment ?? 'staging',
+                dto.status ?? previous?.status ?? 'active',
+                startAt ?? null,
+                endAt ?? null,
+                testerId,
+                dto.application ?? previous?.application ?? null,
+            ];
+            const result = id === null
+                ? await client.query('INSERT INTO projects(name,description,environment,status,"startAt","endAt","assignedTesterId",application) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', values)
+                : await client.query('UPDATE projects SET name=$1,description=$2,environment=$3,status=$4,"startAt"=$5,"endAt"=$6,"assignedTesterId"=$7,application=$8,"updatedAt"=NOW() WHERE id=$9 RETURNING id', [...values, id]);
+            const projectId = result.rows[0].id;
+            if (previous?.assignedTesterId &&
+                previous.assignedTesterId !== testerId) {
+                await client.query('DELETE FROM project_assignments WHERE "projectId"=$1 AND "userId"=$2 AND "primaryManaged"=TRUE', [projectId, previous.assignedTesterId]);
+            }
+            if (testerId !== null) {
+                const assignment = await client.query('INSERT INTO project_assignments("projectId","userId","primaryManaged") VALUES($1,$2,TRUE) ON CONFLICT ("userId","projectId") DO NOTHING RETURNING id', [projectId, testerId]);
+                if (assignment.rowCount) {
+                    await client.query(`INSERT INTO notifications("userId",title,message,"titleEn","messageEn","projectId",link)
+            VALUES($1,$2,$3,$4,$5,$6,$7)`, [
+                        testerId,
+                        'إسناد مشروع جديد: ' + values[0],
+                        'تم إسناد المشروع إليك: ' + values[0],
+                        'New project assignment: ' + values[0],
+                        'You have been assigned to project ' + values[0],
+                        projectId,
+                        '/projects?project=' + projectId,
+                    ]);
+                }
+            }
+            await client.query('COMMIT');
+            return projectId;
+        }
+        catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        }
+        finally {
+            client.release();
+        }
     }
     async findAll(query, currentUser) {
         const db = this.databaseService.db;
@@ -44,7 +107,8 @@ let ProjectsService = class ProjectsService {
             conditions.push('pa."userId" = ?');
             params.push(targetUserId);
         }
-        else if (isAssignedToMe || (currentUser && currentUser.role !== 'admin')) {
+        else if (isAssignedToMe ||
+            (currentUser && currentUser.role !== 'admin')) {
             joinClause = 'INNER JOIN project_assignments pa ON p.id = pa."projectId"';
             conditions.push('pa."userId" = ?');
             params.push(Number(currentUser.id || currentUser.userId || currentUser.sub));
@@ -63,8 +127,10 @@ let ProjectsService = class ProjectsService {
             params.push(s, s);
         }
         let pidx = 1;
-        const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
-        const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
+        const numberedConditions = conditions.map((c) => c.replace(/\?/g, () => `$${pidx++}`));
+        const whereClause = numberedConditions.length > 0
+            ? `WHERE ${numberedConditions.join(' AND ')}`
+            : '';
         const sql = `SELECT DISTINCT p.* FROM projects p ${joinClause} ${whereClause} ORDER BY p.id ASC`;
         const projectsResult = await db.query(sql, params);
         const projects = projectsResult.rows;
@@ -155,7 +221,9 @@ let ProjectsService = class ProjectsService {
                 steps,
                 testerId: tester_id || null,
                 userId: tester_id || null,
-                tester: tester_id ? { id: tester_id, userId: tester_id, name: tester_name } : null,
+                tester: tester_id
+                    ? { id: tester_id, userId: tester_id, name: tester_name }
+                    : null,
             };
         });
         const statsResult = await db.query(`
@@ -181,38 +249,38 @@ let ProjectsService = class ProjectsService {
         };
     }
     async update(id, dto) {
-        const db = this.databaseService.db;
-        await this.findOne(id);
-        const fields = [];
-        const values = [];
-        let pidx = 1;
-        const allowed = ['name', 'description', 'environment', 'status'];
-        for (const key of allowed) {
-            if (dto[key] !== undefined) {
-                fields.push(`"${key}" = $${pidx++}`);
-                values.push(dto[key]);
-            }
-        }
-        if (fields.length > 0) {
-            fields.push(`"updatedAt" = NOW()`);
-            values.push(id);
-            await db.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${pidx}`, values);
-        }
+        await this.saveProject(id, dto);
         return this.findOne(id);
     }
     async remove(id) {
-        const db = this.databaseService.db;
-        const project = await this.findOne(id);
-        const history = await db.query('SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 LIMIT 1', [id]);
-        if (history.rowCount)
-            throw new common_1.BadRequestException('Project has releases or execution history. Archive it instead.');
-        if (project.assignedUsers && project.assignedUsers.length > 0) {
-            throw new common_1.BadRequestException('لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.');
+        const db = await this.databaseService.db.connect();
+        try {
+            await db.query('BEGIN');
+            const project = await db.query('SELECT id FROM projects WHERE id=$1 FOR UPDATE', [id]);
+            if (!project.rowCount)
+                throw new common_1.NotFoundException(`Project #${id} not found`);
+            const history = await db.query('SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_case_imports WHERE "projectId"=$1 LIMIT 1', [id]);
+            if (history.rowCount)
+                throw new common_1.BadRequestException('Project has releases, execution history or imported source records. Archive it instead.');
+            const assignments = await db.query('SELECT 1 FROM project_assignments WHERE "projectId"=$1 LIMIT 1', [id]);
+            if (assignments.rowCount) {
+                throw new common_1.BadRequestException('لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.');
+            }
+            await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [
+                id,
+            ]);
+            await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
+            await db.query('DELETE FROM projects WHERE id = $1', [id]);
+            await db.query('COMMIT');
+            return { message: `تم حذف المشروع رقم #${id} بنجاح` };
         }
-        await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [id]);
-        await db.query('UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1', [id]);
-        await db.query('DELETE FROM projects WHERE id = $1', [id]);
-        return { message: `تم حذف المشروع رقم #${id} بنجاح` };
+        catch (error) {
+            await db.query('ROLLBACK');
+            throw error;
+        }
+        finally {
+            db.release();
+        }
     }
 };
 exports.ProjectsService = ProjectsService;

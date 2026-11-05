@@ -1,5 +1,6 @@
 // Run inside Render with its existing DATABASE_URL. Never loads a local .env.
 const { Pool } = require('pg');
+const { connectionUsesTls } = require('./production-baseline.cjs');
 const {
   migrateTestCaseImports,
 } = require('../dist/database/test-case-import-migration');
@@ -14,7 +15,9 @@ if (!process.env.DATABASE_URL)
     'DATABASE_URL must already be configured for the intended environment',
   );
 if (!process.env.JWT_SECRET)
-  throw new Error('JWT_SECRET must already be configured in Render; do not deploy using the source-code fallback');
+  throw new Error(
+    'JWT_SECRET must already be configured in Render; do not deploy using the source-code fallback',
+  );
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 15000,
@@ -45,7 +48,7 @@ async function main() {
       to_regclass('test_cases_current') IS NOT NULL AS current_view,
       to_regclass('test_case_imports') IS NOT NULL AS provenance,
       has_schema_privilege(current_user,'public','CREATE') AS can_create,
-      COALESCE((SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()),false) AS ssl`)
+      COALESCE((SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()),false) AS database_server_leg_ssl`)
     ).rows[0];
     if (!tables.cases || !tables.current_view)
       throw new Error('Required test case schema is missing');
@@ -53,8 +56,11 @@ async function main() {
       throw new Error(
         'Database role cannot create the provenance table; have the authorized database owner review the migration',
       );
-    console.log(JSON.stringify({ prerequisitesApplied: true, ...tables }));
-    if (!tables.ssl)
+    const clientTls = connectionUsesTls(db);
+    console.log(
+      JSON.stringify({ prerequisitesApplied: true, ...tables, clientTls }),
+    );
+    if (!clientTls)
       throw new Error(
         'Database connection is not using TLS. Review provider-issued TLS settings and obtain approval before any configuration change',
       );

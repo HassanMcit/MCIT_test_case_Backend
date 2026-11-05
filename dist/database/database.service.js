@@ -50,6 +50,7 @@ const cache_revision_migration_1 = require("./cache-revision-migration");
 const project_deadlines_migration_1 = require("./project-deadlines-migration");
 const workflow_migration_1 = require("./workflow-migration");
 const test_case_import_migration_1 = require("./test-case-import-migration");
+const garage_workbook_seed_migration_1 = require("./garage-workbook-seed-migration");
 let DatabaseService = DatabaseService_1 = class DatabaseService {
     async onModuleInit() {
         this.db = new pg_1.Pool({
@@ -67,6 +68,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         await (0, project_deadlines_migration_1.migrateProjectDeadlines)(this.db);
         await (0, cache_revision_migration_1.migrateCacheRevision)(this.db);
         await (0, test_case_import_migration_1.migrateTestCaseImports)(this.db);
+        await (0, garage_workbook_seed_migration_1.migrateGarageWorkbookSeed)(this.db);
         await this.seedInitialData();
     }
     async onModuleDestroy() {

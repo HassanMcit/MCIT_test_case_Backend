@@ -22,6 +22,8 @@ const {
 } = require('../dist/database/test-case-import-migration');
 const { TestCasesService } = require('../dist/test-cases/test-cases.service');
 const { WorkflowService } = require('../dist/workflow/workflow.service');
+const { migrateGarageWorkbookSeed } = require('../dist/database/garage-workbook-seed-migration');
+const { GarageImportService } = require('../dist/test-cases/garage-import.service');
 
 void test('migration preview, failed DDL, apply and rerun preserve all 65 legacy cases and API compatibility', async () => {
   const pg = new PGlite();
@@ -121,6 +123,39 @@ void test('migration preview, failed DDL, apply and rerun preserve all 65 legacy
       list.data.every((tc) => tc.importMetadata === null),
       true,
     );
+    // Seed Testing Garage System + owners + stray wrong-project Garage rows (TC-0034, TC-0035, TC-0004)
+    await query(`
+      INSERT INTO users(id,name,email,password,role) VALUES
+        (2,'Hassan Ali','h.ali@mcit.gov.eg','unused','admin'),
+        (3,'Alaa Eldin Mohsen','alaa@mcit.gov.eg','unused','tester');
+      INSERT INTO projects(id,name,application) VALUES
+        (2,'Testing Attendance Reports','Attendance System'),
+        (3,'Testing Garage System','Garage System');
+      INSERT INTO test_cases("testId",module,"pageName",scenario,"preConditions",steps,"expectedResult",status,"testerId","projectId")
+      VALUES
+        ('TC-0034','Garage System','حركة المركبات','Stray wrong project 1',NULL,'["s"]','e','passed',3,2),
+        ('TC-0035','Garage System','الحركة','Stray wrong project 2',NULL,'["s"]','e','passed',3,2),
+        ('TC-0004','Garage System','حركات المركبة','Stray lone case',NULL,'["s"]','e','passed',2,3);
+    `);
+
+    const seedRes = await migrateGarageWorkbookSeed(adapter);
+    assert.equal(seedRes.insertedCount, 51);
+    assert.equal(seedRes.removedStrayCount, 3);
+
+    const rerunRes = await migrateGarageWorkbookSeed(adapter);
+    assert.equal(rerunRes.insertedCount, 0);
+    assert.equal(rerunRes.updatedCount, 51);
+
+    const garageImportService = new GarageImportService(database);
+    const status = await garageImportService.status();
+    assert.equal(status.verified, true);
+    assert.equal(status.totalImported, 51);
+    assert.equal(status.totalCasesInGarageProject, 51);
+    assert.equal(status.wrongProjectGarageCasesCount, 0);
+    assert.deepEqual(status.assignments, [
+      { name: 'Alaa Eldin Mohsen', count: 30 },
+      { name: 'Hassan Ali', count: 21 },
+    ]);
   } finally {
     await pg.close();
   }

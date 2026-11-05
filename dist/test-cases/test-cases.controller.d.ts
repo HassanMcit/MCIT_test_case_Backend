@@ -85,6 +85,19 @@ export declare class TestCasesController {
             databaseId: any;
         }[];
     }>;
+    importStatus(): Promise<{
+        verified: boolean;
+        totalImported: number;
+        batchHash: string;
+        project: any;
+        assignments: {
+            name: string;
+            count: number;
+        }[];
+        totalCasesInGarageProject: any;
+        wrongProjectGarageCasesCount: any;
+        mismatches: string[];
+    }>;
     verifyImport(batchHash: string, req: any): Promise<{
         verified: boolean;
         total: number;

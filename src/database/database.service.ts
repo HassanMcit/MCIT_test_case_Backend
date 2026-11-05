@@ -7,6 +7,7 @@ import { migrateCacheRevision } from './cache-revision-migration';
 import { migrateProjectDeadlines } from './project-deadlines-migration';
 import { migrateWorkflow } from './workflow-migration';
 import { migrateTestCaseImports } from './test-case-import-migration';
+import { migrateGarageWorkbookSeed } from './garage-workbook-seed-migration';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -29,6 +30,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await migrateProjectDeadlines(this.db);
     await migrateCacheRevision(this.db);
     await migrateTestCaseImports(this.db);
+    await migrateGarageWorkbookSeed(this.db);
     // await this.runMigrations();
     await this.seedInitialData();
   }

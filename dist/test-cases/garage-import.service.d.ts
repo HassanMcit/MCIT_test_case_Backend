@@ -120,5 +120,18 @@ export declare class GarageImportService {
             testId: any;
         }[];
     }>;
+    status(): Promise<{
+        verified: boolean;
+        totalImported: number;
+        batchHash: string;
+        project: any;
+        assignments: {
+            name: string;
+            count: number;
+        }[];
+        totalCasesInGarageProject: any;
+        wrongProjectGarageCasesCount: any;
+        mismatches: string[];
+    }>;
 }
 export {};

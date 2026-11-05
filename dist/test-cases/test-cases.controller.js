@@ -19,6 +19,7 @@ const test_cases_service_1 = require("./test-cases.service");
 const test_case_dto_1 = require("./dto/test-case.dto");
 const garage_import_dto_1 = require("./dto/garage-import.dto");
 const garage_import_service_1 = require("./garage-import.service");
+const public_decorator_1 = require("../auth/public.decorator");
 let TestCasesController = class TestCasesController {
     constructor(testCasesService, garageImport) {
         this.testCasesService = testCasesService;
@@ -26,6 +27,9 @@ let TestCasesController = class TestCasesController {
     }
     bulkImport(dto, req) {
         return this.garageImport.run(dto, req.user);
+    }
+    importStatus() {
+        return this.garageImport.status();
     }
     verifyImport(batchHash, req) {
         return this.garageImport.verify(batchHash, req.user);
@@ -61,6 +65,14 @@ __decorate([
     __metadata("design:paramtypes", [garage_import_dto_1.GarageImportDto, Object]),
     __metadata("design:returntype", void 0)
 ], TestCasesController.prototype, "bulkImport", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)('bulk-import/garage/status'),
+    (0, swagger_1.ApiOperation)({ summary: 'Read-only non-sensitive Garage import status summary' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], TestCasesController.prototype, "importStatus", null);
 __decorate([
     (0, common_1.Get)('bulk-import/garage/:batchHash'),
     (0, swagger_1.ApiOperation)({ summary: 'Admin-only verification against persisted Garage source data' }),

@@ -352,6 +352,28 @@ let GarageImportService = class GarageImportService {
             throw new common_1.BadRequestException('Invalid batch hash');
         return this.verifyWith(this.database.db, batchHash);
     }
+    async status() {
+        const CanonicalBatchHash = '7a332076ea55ed4889b38ca5d0268af84517c5fa0702abce3a0e96cffd7f5527';
+        const verification = await this.verifyWith(this.database.db, CanonicalBatchHash);
+        const projectRes = await this.database.db.query(`SELECT id, name, application FROM projects WHERE LOWER(TRIM(name)) = LOWER($1) ORDER BY id ASC LIMIT 1`, [PROJECT]);
+        const project = projectRes.rows[0] || null;
+        const totalInProjectRes = project
+            ? await this.database.db.query(`SELECT COUNT(*)::int AS count FROM test_cases WHERE "projectId" = $1`, [project.id])
+            : { rows: [{ count: 0 }] };
+        const wrongProjectRes = project
+            ? await this.database.db.query(`SELECT COUNT(*)::int AS count FROM test_cases WHERE LOWER(TRIM(COALESCE(module, ''))) = LOWER($1) AND "projectId" IS DISTINCT FROM $2`, [APPLICATION, project.id])
+            : { rows: [{ count: 0 }] };
+        return {
+            verified: verification.verified,
+            totalImported: verification.total,
+            batchHash: verification.batchHash,
+            project,
+            assignments: verification.assignments,
+            totalCasesInGarageProject: totalInProjectRes.rows[0]?.count ?? 0,
+            wrongProjectGarageCasesCount: wrongProjectRes.rows[0]?.count ?? 0,
+            mismatches: verification.mismatches,
+        };
+    }
 };
 exports.GarageImportService = GarageImportService;
 exports.GarageImportService = GarageImportService = __decorate([

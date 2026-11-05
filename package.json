@@ -22,7 +22,8 @@
     "test:workflow": "node --test test/workflow.integration.cjs",
     "migrate:workflow": "node scripts/migrate-workflow.cjs",
     "test:projects": "node --test test/project-deadlines.integration.cjs",
-    "migrate:project-deadlines": "node scripts/migrate-project-deadlines.cjs"
+    "migrate:project-deadlines": "node scripts/migrate-project-deadlines.cjs",
+    "test:garage-import": "node --test test/garage-import.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

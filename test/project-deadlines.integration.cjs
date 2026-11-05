@@ -10,6 +10,7 @@ const { PGlite } = require(
     ),
 );
 const { DatabaseService } = require('../dist/database/database.service');
+const { migrateTestCaseImports } = require('../dist/database/test-case-import-migration');
 const { migrateWorkflow } = require('../dist/database/workflow-migration');
 const {
   migrateProjectDeadlines,
@@ -89,6 +90,7 @@ before(async () => {
   );
   await migrateProjectDeadlines(adapter);
   await migrateCacheRevision(adapter);
+  await migrateTestCaseImports(adapter);
   projects = new ProjectsService(db);
   users = new UsersService(db);
   worker = new ProjectDeadlinesService(db, users);

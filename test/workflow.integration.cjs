@@ -11,6 +11,7 @@ const { PGlite } = require(
     ),
 );
 const { DatabaseService } = require('../dist/database/database.service');
+const { migrateTestCaseImports } = require('../dist/database/test-case-import-migration');
 const {
   migrateWorkflow,
   workflowSql,
@@ -74,6 +75,7 @@ before(async () => {
     null,
   );
   await migrateWorkflow(adapter);
+  await migrateTestCaseImports(adapter);
   service = new WorkflowService(db);
   cases = new TestCasesService(db, service);
   process.env.JWT_SECRET = secret;

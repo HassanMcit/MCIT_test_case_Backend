@@ -11,6 +11,15 @@ import { AuditLogsService, parseDeviceSummary, generateDeterministicMac } from '
 function resolveActionInfo(method: string, url: string, body: any): { action: string; category: string; description: string } {
   const cleanUrl = url.split('?')[0];
 
+  if (method === 'POST' && cleanUrl.endsWith('/api/test-cases/bulk-import/garage')) {
+    const preview = body?.dryRun !== false;
+    return {
+      action: preview ? 'Preview Garage test case import' : 'Import Garage test cases',
+      category: 'TEST_CASES',
+      description: preview ? 'Validated import plan; no test cases written' : 'Requested atomic Garage workbook import',
+    };
+  }
+
   // Test cases
   if (cleanUrl.includes('/api/test-cases')) {
     if (method === 'POST') {

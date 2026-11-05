@@ -24,7 +24,6 @@ import { TestCasesService } from './test-cases.service';
 import { CreateTestCaseDto, UpdateTestCaseDto } from './dto/test-case.dto';
 import { GarageImportDto } from './dto/garage-import.dto';
 import { GarageImportService } from './garage-import.service';
-import { Public } from '../auth/public.decorator';
 
 @ApiTags('Test Cases')
 @ApiBearerAuth('access-token')
@@ -42,11 +41,10 @@ export class TestCasesController {
     return this.garageImport.run(dto, req.user);
   }
 
-  @Public()
   @Get('bulk-import/garage/status')
-  @ApiOperation({ summary: 'Read-only non-sensitive Garage import status summary' })
-  importStatus() {
-    return this.garageImport.status();
+  @ApiOperation({ summary: 'Admin-only Garage import status summary' })
+  importStatus(@Request() req: any) {
+    return this.garageImport.status(req.user);
   }
 
   @Get('bulk-import/garage/:batchHash')

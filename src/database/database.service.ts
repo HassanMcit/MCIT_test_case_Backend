@@ -2,12 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import * as bcrypt from 'bcryptjs';
-import { migrateCacheRevision } from './cache-revision-migration';
-import { migrateProjectDeadlines } from './project-deadlines-migration';
-import { migrateWorkflow } from './workflow-migration';
-import { migrateTestCaseImports } from './test-case-import-migration';
-import { migrateGarageWorkbookSeed } from './garage-workbook-seed-migration';
+import { assertRuntimeSchemaReady } from './runtime-schema';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -16,23 +11,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     this.db = new Pool({
       connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 10000,
     });
 
-    try {
-      await this.db.query('SELECT 1');
-      console.log('✅ Connected to PostgreSQL');
-    } catch (err) {
-      console.error('❌ Failed to connect to PostgreSQL', err);
-    }
-
-    await this.initTables();
-    await migrateWorkflow(this.db);
-    await migrateProjectDeadlines(this.db);
-    await migrateCacheRevision(this.db);
-    await migrateTestCaseImports(this.db);
-    await migrateGarageWorkbookSeed(this.db);
-    // await this.runMigrations();
-    await this.seedInitialData();
+    // Verification only: imports, migrations and seeding never run at startup.
+    await assertRuntimeSchemaReady(this.db);
   }
 
   async onModuleDestroy() {
@@ -105,36 +88,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const vParam = v ? `?v=${v}` : '';
 
     return `${baseUrl}/api/users/${user.id}/photo${vParam}`;
-  }
-
-  private async runMigrations() {
-    const DEFAULT_PHOTO = this.getPersistedPhoto();
-    const columnsResult = await this.db.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'users'");
-    const columns = columnsResult.rows;
-
-    // Add profileImage column if it doesn't exist
-    const hasProfileImage = columns.some((c: any) => c.column_name === 'profileimage');
-    if (!hasProfileImage) {
-      await this.db.query(`ALTER TABLE users ADD COLUMN "profileImage" TEXT`);
-      console.log('✅ Migration: Added profileImage column to users table');
-    }
-
-    // Add photo column if it doesn't exist
-    const hasPhoto = columns.some((c: any) => c.column_name === 'photo');
-    if (!hasPhoto) {
-      await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT`);
-      console.log('✅ Migration: Added photo column to users table');
-    }
-
-    // Update any existing users with null, empty, or dummy 1x1 photo to the default image
-    await this.db.query(
-      "UPDATE users SET photo = $1 WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'",
-      [DEFAULT_PHOTO]
-    );
-
-    // Ensure test_cases testId is scoped per project
-    await this.db.query('ALTER TABLE test_cases DROP CONSTRAINT IF EXISTS "test_cases_testId_key"');
-    await this.db.query('CREATE UNIQUE INDEX IF NOT EXISTS "test_cases_project_testid_idx" ON test_cases (COALESCE("projectId", 0), "testId")');
   }
 
   private async initTables() {
@@ -293,37 +246,4 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     `);
   }
 
-  private async seedInitialData() {
-    // Ensure database contains Hassan Ali with id: 1 (admin)
-    const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);
-    const persistedPhoto = this.getPersistedPhoto();
-
-    const hassanResult = await this.db.query('SELECT id, photo, "profileImage" FROM users WHERE email = $1', ['h.ali@mcit.gov.eg']);
-    const hassan = hassanResult.rows[0] as { id: number; photo?: string; profileImage?: string } | undefined;
-
-    if (!hassan) {
-      await this.db.query(`
-        INSERT INTO users (id, name, email, password, role, photo, "profileImage")
-        VALUES (1, $1, $2, $3, $4, $5, $6)
-        ON CONFLICT (email) DO NOTHING
-      `, ['Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', persistedPhoto, persistedPhoto]);
-      await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce((SELECT max(id) FROM users),0) + 1, false);`);
-
-      console.log('✅ Default admin user Hassan Ali initialized.');
-    } else {
-      // PRESERVE the existing custom photo if set, otherwise use persisted/default
-      const isDummy =
-        hassan.photo &&
-        hassan.photo.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk');
-      const currentPhoto =
-        !isDummy && hassan.photo && hassan.photo.trim() !== ''
-          ? hassan.photo
-          : persistedPhoto;
-      await this.db.query(
-        'UPDATE users SET photo = $1, "profileImage" = COALESCE("profileImage", $2) WHERE id = $3',
-        [currentPhoto, currentPhoto, hassan.id]
-      );
-      console.log('✅ Hassan Ali (id: 1) exists - password and settings preserved.');
-    }
-  }
 }

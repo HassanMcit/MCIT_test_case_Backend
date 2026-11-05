@@ -14,6 +14,8 @@ export declare function garageRows(dto: GarageImportDto): {
     ownerName: string;
     plannedAt: string;
 }[];
+type Row = ReturnType<typeof garageRows>[number];
+export declare function possibleGarageDuplicate(row: Row, existing: any): boolean;
 export declare class GarageImportService {
     private readonly database;
     constructor(database: DatabaseService);
@@ -34,6 +36,14 @@ export declare class GarageImportService {
         wouldInsert: number;
         skipped: number;
         conflicts: string[];
+        semanticDuplicates: {
+            sourceTestId: string;
+            databaseId: any;
+            existingTestId: any;
+            projectId: any;
+            pageName: any;
+            reason: string;
+        }[];
         canCommit: boolean;
         plan: {
             testId: string;
@@ -85,6 +95,14 @@ export declare class GarageImportService {
         wouldInsert: number;
         skipped: number;
         conflicts: string[];
+        semanticDuplicates: {
+            sourceTestId: string;
+            databaseId: any;
+            existingTestId: any;
+            projectId: any;
+            pageName: any;
+            reason: string;
+        }[];
         canCommit: boolean;
         plan: {
             testId: string;
@@ -120,7 +138,7 @@ export declare class GarageImportService {
             testId: any;
         }[];
     }>;
-    status(): Promise<{
+    status(user: Actor): Promise<{
         verified: boolean;
         totalImported: number;
         batchHash: string;

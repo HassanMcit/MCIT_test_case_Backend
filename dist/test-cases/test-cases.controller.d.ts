@@ -21,6 +21,14 @@ export declare class TestCasesController {
         wouldInsert: number;
         skipped: number;
         conflicts: string[];
+        semanticDuplicates: {
+            sourceTestId: string;
+            databaseId: any;
+            existingTestId: any;
+            projectId: any;
+            pageName: any;
+            reason: string;
+        }[];
         canCommit: boolean;
         plan: {
             testId: string;
@@ -72,6 +80,14 @@ export declare class TestCasesController {
         wouldInsert: number;
         skipped: number;
         conflicts: string[];
+        semanticDuplicates: {
+            sourceTestId: string;
+            databaseId: any;
+            existingTestId: any;
+            projectId: any;
+            pageName: any;
+            reason: string;
+        }[];
         canCommit: boolean;
         plan: {
             testId: string;
@@ -85,7 +101,7 @@ export declare class TestCasesController {
             databaseId: any;
         }[];
     }>;
-    importStatus(): Promise<{
+    importStatus(req: any): Promise<{
         verified: boolean;
         totalImported: number;
         batchHash: string;

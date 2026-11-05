@@ -12,7 +12,5 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
         profileImage?: string;
         updatedAt?: string;
     } | undefined, req?: any): string;
-    private runMigrations;
     private initTables;
-    private seedInitialData;
 }

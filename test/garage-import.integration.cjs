@@ -299,6 +299,52 @@ void test('existing foreign data causes conflicts, never renumbers IDs or overwr
     ALTER TABLE test_cases DROP CONSTRAINT isolated_global_testid;`);
 });
 
+void test('semantic duplicates with different IDs block preview and commit without modifying the existing case', async () => {
+  const original = rows[0].original;
+  const added = await adapter.query(
+    'INSERT INTO test_cases("testId",module,"pageName",scenario,steps,"expectedResult","testerId","projectId") VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+    [
+      'TC-0004',
+      'Garage System',
+      original.Module,
+      original['Test Scenario'].toUpperCase(),
+      JSON.stringify([original['Test Steps']]),
+      original['Expected Result'],
+      20,
+      50,
+    ],
+  );
+  try {
+    const preview = await post({ dryRun: true, rows });
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.canCommit, false);
+    assert.ok(
+      preview.body.semanticDuplicates.some(
+        (r) => r.databaseId === added.rows[0].id && r.sourceTestId === 'TC_001',
+      ),
+    );
+    const commit = await post({
+      dryRun: false,
+      rows,
+      previewHash: preview.body.previewHash,
+    });
+    assert.equal(commit.status, 409);
+    assert.equal(await count('test_case_imports'), 0);
+    assert.deepEqual(
+      (
+        await adapter.query('SELECT * FROM test_cases WHERE id=$1', [
+          added.rows[0].id,
+        ])
+      ).rows[0],
+      added.rows[0],
+    );
+  } finally {
+    await adapter.query('DELETE FROM test_cases WHERE id=$1', [
+      added.rows[0].id,
+    ]);
+  }
+});
+
 void test('stale preview and mid-transaction failure roll back definitions, metadata and cache revision', async () => {
   const preview = (await post({ dryRun: true, rows }).expect(200)).body;
   await post({ dryRun: false, rows, previewHash: '0'.repeat(64) }).expect(409);

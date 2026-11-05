@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GarageImportService = exports.GARAGE_HEADERS = void 0;
 exports.garageRows = garageRows;
+exports.possibleGarageDuplicate = possibleGarageDuplicate;
 const common_1 = require("@nestjs/common");
 const node_crypto_1 = require("node:crypto");
 const database_service_1 = require("../database/database.service");
@@ -98,6 +99,40 @@ function garageRows(dto) {
             plannedAt,
         };
     });
+}
+const comparable = (value) => (value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('en')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+const similarity = (a, b) => {
+    if (!a || !b)
+        return 0;
+    if (a === b)
+        return 1;
+    const left = new Set(a.split(' ')), right = new Set(b.split(' '));
+    return ([...left].filter((word) => right.has(word)).length /
+        new Set([...left, ...right]).size);
+};
+function possibleGarageDuplicate(row, existing) {
+    let steps = existing.steps || '';
+    try {
+        const decoded = JSON.parse(steps);
+        if (Array.isArray(decoded))
+            steps = decoded.join('\n');
+    }
+    catch {
+    }
+    const scenario = similarity(comparable(row.original['Test Scenario']), comparable(existing.scenario));
+    const expected = similarity(comparable(row.original['Expected Result']), comparable(existing.expectedResult));
+    const stepScore = similarity(comparable(row.original['Test Steps']), comparable(steps));
+    const samePage = comparable(row.original.Module) === comparable(existing.pageName);
+    return ((scenario === 1 && (samePage || expected >= 0.8 || stepScore >= 0.8)) ||
+        (samePage && scenario >= 0.8 && (expected >= 0.8 || stepScore >= 0.8)) ||
+        (expected === 1 && stepScore === 1));
 }
 let GarageImportService = class GarageImportService {
     constructor(database) {
@@ -209,7 +244,29 @@ let GarageImportService = class GarageImportService {
                     databaseId: found[0]?.id ?? null,
                 };
             });
-            const previewHash = hash({ batchHash, project, owners, plan });
+            const candidates = (await db.query(`SELECT id,"testId","projectId",module,"pageName",scenario,steps,"expectedResult"
+         FROM test_cases WHERE "projectId"=$1 OR lower(trim(module))=lower($2)
+         ORDER BY id${dto.dryRun ? '' : ' FOR UPDATE'}`, [project.id, APPLICATION])).rows;
+            const semanticDuplicates = rows.flatMap((row, index) => plan[index].action === 'skip'
+                ? []
+                : candidates
+                    .filter((tc) => tc.id !== plan[index].databaseId &&
+                    possibleGarageDuplicate(row, tc))
+                    .map((tc) => ({
+                    sourceTestId: row.testId,
+                    databaseId: tc.id,
+                    existingTestId: tc.testId,
+                    projectId: tc.projectId,
+                    pageName: tc.pageName,
+                    reason: 'Similar scenario, steps or expected result; manual review required',
+                })));
+            const previewHash = hash({
+                batchHash,
+                project,
+                owners,
+                plan,
+                semanticDuplicates,
+            });
             const result = {
                 dryRun: dto.dryRun,
                 batchHash,
@@ -225,17 +282,19 @@ let GarageImportService = class GarageImportService {
                 wouldInsert: plan.filter((r) => r.action === 'insert').length,
                 skipped: plan.filter((r) => r.action === 'skip').length,
                 conflicts,
-                canCommit: conflicts.length === 0,
+                semanticDuplicates,
+                canCommit: conflicts.length === 0 && semanticDuplicates.length === 0,
                 plan,
             };
             if (dto.dryRun) {
                 await db.query('ROLLBACK');
                 return result;
             }
-            if (conflicts.length)
+            if (conflicts.length || semanticDuplicates.length)
                 throw new common_1.ConflictException({
                     message: 'Existing test cases differ; nothing was overwritten',
                     conflicts,
+                    semanticDuplicates,
                 });
             if (dto.previewHash !== previewHash)
                 throw new common_1.ConflictException('Preview is stale. Run dry-run again and review the new mappings');
@@ -352,7 +411,8 @@ let GarageImportService = class GarageImportService {
             throw new common_1.BadRequestException('Invalid batch hash');
         return this.verifyWith(this.database.db, batchHash);
     }
-    async status() {
+    async status(user) {
+        this.admin(user);
         const CanonicalBatchHash = '7a332076ea55ed4889b38ca5d0268af84517c5fa0702abce3a0e96cffd7f5527';
         const verification = await this.verifyWith(this.database.db, CanonicalBatchHash);
         const projectRes = await this.database.db.query(`SELECT id, name, application FROM projects WHERE LOWER(TRIM(name)) = LOWER($1) ORDER BY id ASC LIMIT 1`, [PROJECT]);

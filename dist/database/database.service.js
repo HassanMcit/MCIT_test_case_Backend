@@ -45,31 +45,14 @@ const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("node:fs"));
-const bcrypt = __importStar(require("bcryptjs"));
-const cache_revision_migration_1 = require("./cache-revision-migration");
-const project_deadlines_migration_1 = require("./project-deadlines-migration");
-const workflow_migration_1 = require("./workflow-migration");
-const test_case_import_migration_1 = require("./test-case-import-migration");
-const garage_workbook_seed_migration_1 = require("./garage-workbook-seed-migration");
+const runtime_schema_1 = require("./runtime-schema");
 let DatabaseService = DatabaseService_1 = class DatabaseService {
     async onModuleInit() {
         this.db = new pg_1.Pool({
             connectionString: process.env.DATABASE_URL,
+            connectionTimeoutMillis: 10000,
         });
-        try {
-            await this.db.query('SELECT 1');
-            console.log('✅ Connected to PostgreSQL');
-        }
-        catch (err) {
-            console.error('❌ Failed to connect to PostgreSQL', err);
-        }
-        await this.initTables();
-        await (0, workflow_migration_1.migrateWorkflow)(this.db);
-        await (0, project_deadlines_migration_1.migrateProjectDeadlines)(this.db);
-        await (0, cache_revision_migration_1.migrateCacheRevision)(this.db);
-        await (0, test_case_import_migration_1.migrateTestCaseImports)(this.db);
-        await (0, garage_workbook_seed_migration_1.migrateGarageWorkbookSeed)(this.db);
-        await this.seedInitialData();
+        await (0, runtime_schema_1.assertRuntimeSchemaReady)(this.db);
     }
     async onModuleDestroy() {
         if (this.db) {
@@ -119,24 +102,6 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         const v = user.updatedAt ? new Date(user.updatedAt).getTime() : '';
         const vParam = v ? `?v=${v}` : '';
         return `${baseUrl}/api/users/${user.id}/photo${vParam}`;
-    }
-    async runMigrations() {
-        const DEFAULT_PHOTO = this.getPersistedPhoto();
-        const columnsResult = await this.db.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'users'");
-        const columns = columnsResult.rows;
-        const hasProfileImage = columns.some((c) => c.column_name === 'profileimage');
-        if (!hasProfileImage) {
-            await this.db.query(`ALTER TABLE users ADD COLUMN "profileImage" TEXT`);
-            console.log('✅ Migration: Added profileImage column to users table');
-        }
-        const hasPhoto = columns.some((c) => c.column_name === 'photo');
-        if (!hasPhoto) {
-            await this.db.query(`ALTER TABLE users ADD COLUMN photo TEXT`);
-            console.log('✅ Migration: Added photo column to users table');
-        }
-        await this.db.query("UPDATE users SET photo = $1 WHERE photo IS NULL OR photo = '' OR photo LIKE '%iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk%'", [DEFAULT_PHOTO]);
-        await this.db.query('ALTER TABLE test_cases DROP CONSTRAINT IF EXISTS "test_cases_testId_key"');
-        await this.db.query('CREATE UNIQUE INDEX IF NOT EXISTS "test_cases_project_testid_idx" ON test_cases (COALESCE("projectId", 0), "testId")');
     }
     async initTables() {
         await this.db.query(`
@@ -291,30 +256,6 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    }
-    async seedInitialData() {
-        const defaultPassword = bcrypt.hashSync('Mm$$1020', 10);
-        const persistedPhoto = this.getPersistedPhoto();
-        const hassanResult = await this.db.query('SELECT id, photo, "profileImage" FROM users WHERE email = $1', ['h.ali@mcit.gov.eg']);
-        const hassan = hassanResult.rows[0];
-        if (!hassan) {
-            await this.db.query(`
-        INSERT INTO users (id, name, email, password, role, photo, "profileImage")
-        VALUES (1, $1, $2, $3, $4, $5, $6)
-        ON CONFLICT (email) DO NOTHING
-      `, ['Hassan Ali', 'h.ali@mcit.gov.eg', defaultPassword, 'admin', persistedPhoto, persistedPhoto]);
-            await this.db.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce((SELECT max(id) FROM users),0) + 1, false);`);
-            console.log('✅ Default admin user Hassan Ali initialized.');
-        }
-        else {
-            const isDummy = hassan.photo &&
-                hassan.photo.includes('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk');
-            const currentPhoto = !isDummy && hassan.photo && hassan.photo.trim() !== ''
-                ? hassan.photo
-                : persistedPhoto;
-            await this.db.query('UPDATE users SET photo = $1, "profileImage" = COALESCE("profileImage", $2) WHERE id = $3', [currentPhoto, currentPhoto, hassan.id]);
-            console.log('✅ Hassan Ali (id: 1) exists - password and settings preserved.');
-        }
     }
 };
 exports.DatabaseService = DatabaseService;

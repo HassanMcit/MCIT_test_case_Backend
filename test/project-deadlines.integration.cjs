@@ -304,7 +304,7 @@ void test('business writes increment persistent cache revision transactionally; 
   await users.assignProject(2, { projectId: p.id });
   assert.ok((await revision()) > after);
 });
-void test('scheduler retries errors, prevents overlapping local scans, runs at startup, and cleans up', async () => {
+void test('scheduler retries errors, prevents overlapping local scans, requires explicit worker opt-in, and cleans up', async () => {
   let calls = 0,
     release;
   const gate = new Promise((resolve) => {
@@ -331,7 +331,15 @@ void test('scheduler retries errors, prevents overlapping local scans, runs at s
   assert.equal(calls, 2);
   const startup = new ProjectDeadlinesService(db, users);
   startup.onApplicationBootstrap();
-  assert.ok(startup.timer);
+  assert.equal(startup.timer, undefined);
+  process.env.ENABLE_PROJECT_DEADLINE_WORKER = 'true';
+  try {
+    startup.onApplicationBootstrap();
+    assert.ok(startup.timer);
+    assert.equal(startup.running, false);
+  } finally {
+    delete process.env.ENABLE_PROJECT_DEADLINE_WORKER;
+  }
   startup.onModuleDestroy();
 });
 

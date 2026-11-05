@@ -25,7 +25,7 @@
     "migrate:project-deadlines": "node scripts/migrate-project-deadlines.cjs",
     "test:garage-import": "node --test test/garage-import.integration.cjs",
     "test:cors": "node --test test/cors.integration.cjs",
-    "test:release": "node --test test/cors.integration.cjs test/garage-import.integration.cjs test/import-migration.integration.cjs test/startup-and-audit.test.cjs test/workflow.integration.cjs test/test-case-delete.test.cjs test/project-deadlines.integration.cjs"
+    "test:release": "node --test test/cors.integration.cjs test/garage-import.integration.cjs test/import-migration.integration.cjs test/startup-and-audit.test.cjs test/workflow.integration.cjs test/test-case-delete.test.cjs test/project-deadlines.integration.cjs test/application-startup.integration.cjs test/runtime-schema.test.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

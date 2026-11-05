@@ -45,7 +45,8 @@ let ProjectDeadlinesService = ProjectDeadlinesService_1 = class ProjectDeadlines
         this.running = false;
     }
     onApplicationBootstrap() {
-        void this.tick();
+        if (process.env.ENABLE_PROJECT_DEADLINE_WORKER !== 'true')
+            return;
         this.timer = setInterval(() => void this.tick(), 30_000);
         this.timer.unref();
     }

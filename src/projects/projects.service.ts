@@ -357,31 +357,51 @@ export class ProjectsService {
 
   // ── DELETE /api/projects/:id ─────────────────────────────────────
   async remove(id: number) {
-    const db = this.databaseService.db;
-    const project = await this.findOne(id);
-    const history = await db.query(
-      'SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 LIMIT 1',
-      [id],
-    );
-    if (history.rowCount)
-      throw new BadRequestException(
-        'Project has releases or execution history. Archive it instead.',
+    const db = await this.databaseService.db.connect();
+    try {
+      await db.query('BEGIN');
+      // Serialize deletion with import's FOR SHARE project lock. A failed delete
+      // must never leave its test cases detached from the project.
+      const project = await db.query(
+        'SELECT id FROM projects WHERE id=$1 FOR UPDATE',
+        [id],
       );
+      if (!project.rowCount)
+        throw new NotFoundException(`Project #${id} not found`);
+      const history = await db.query(
+        'SELECT 1 FROM releases WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_executions WHERE "projectId"=$1 UNION ALL SELECT 1 FROM test_case_imports WHERE "projectId"=$1 LIMIT 1',
+        [id],
+      );
+      if (history.rowCount)
+        throw new BadRequestException(
+          'Project has releases, execution history or imported source records. Archive it instead.',
+        );
 
-    if (project.assignedUsers && project.assignedUsers.length > 0) {
-      throw new BadRequestException(
-        'لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.',
+      const assignments = await db.query(
+        'SELECT 1 FROM project_assignments WHERE "projectId"=$1 LIMIT 1',
+        [id],
       );
+      if (assignments.rowCount) {
+        throw new BadRequestException(
+          'لا يمكن حذف هذا المشروع لأنه مسند لمستخدمين حالياً. يرجى إلغاء إسناد المشروع أولاً قبل الحذف.',
+        );
+      }
+
+      await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [
+        id,
+      ]);
+      await db.query(
+        'UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1',
+        [id],
+      );
+      await db.query('DELETE FROM projects WHERE id = $1', [id]);
+      await db.query('COMMIT');
+      return { message: `تم حذف المشروع رقم #${id} بنجاح` };
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
     }
-
-    await db.query('DELETE FROM project_assignments WHERE "projectId" = $1', [
-      id,
-    ]);
-    await db.query(
-      'UPDATE test_cases SET "projectId" = NULL WHERE "projectId" = $1',
-      [id],
-    );
-    await db.query('DELETE FROM projects WHERE id = $1', [id]);
-    return { message: `تم حذف المشروع رقم #${id} بنجاح` };
   }
 }

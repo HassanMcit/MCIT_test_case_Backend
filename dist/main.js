@@ -40,6 +40,7 @@ const express_1 = require("express");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const app_module_1 = require("./app.module");
+const cors_1 = require("./security/cors");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.use((0, express_1.json)({ limit: '200mb' }));
@@ -50,12 +51,7 @@ async function bootstrap() {
     }
     app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
     app.useStaticAssets(uploadDir, { prefix: '/api/uploads/' });
-    app.enableCors({
-        origin: true,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Accept'],
-    });
+    app.enableCors((0, cors_1.createCorsOptions)(process.env.CORS_ALLOWED_ORIGINS));
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: false,
@@ -84,5 +80,8 @@ async function bootstrap() {
     console.log(`🚀 Backend running at http://localhost:${port}`);
     console.log(`📚 Swagger docs at  http://localhost:${port}/api/docs`);
 }
-bootstrap();
+bootstrap().catch(() => {
+    console.error('Backend startup failed; review deployment configuration and server logs.');
+    process.exit(1);
+});
 //# sourceMappingURL=main.js.map

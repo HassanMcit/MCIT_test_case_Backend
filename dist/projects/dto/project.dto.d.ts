@@ -7,6 +7,10 @@ export declare enum ProjectStatus {
     ARCHIVED = "archived"
 }
 export declare class CreateProjectDto {
+    startAt: string;
+    endAt: string;
+    assignedTesterId?: number | null;
+    application?: string;
     name: string;
     description?: string;
     environment?: ProjectEnvironment;
@@ -14,5 +18,7 @@ export declare class CreateProjectDto {
 }
 declare const UpdateProjectDto_base: import("@nestjs/common").Type<Partial<CreateProjectDto>>;
 export declare class UpdateProjectDto extends UpdateProjectDto_base {
+    startAt?: string;
+    endAt?: string;
 }
 export {};

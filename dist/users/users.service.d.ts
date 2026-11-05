@@ -10,6 +10,11 @@ export declare class UsersService {
     getNotificationStream(userId: number): Observable<{
         data: string;
     }>;
+    publishNotification(notification: {
+        userId: number;
+        title: string;
+        message: string;
+    }): void;
     serveUserPhoto(userId: number, res: any): Promise<any>;
     create(dto: CreateUserDto, req?: any): Promise<{
         id: any;
@@ -46,6 +51,8 @@ export declare class UsersService {
         };
         assignedProjects: any[];
     }[]>;
+    eligibleProjectUsers(): Promise<any[]>;
+    eligibleTesters(): Promise<any[]>;
     findAllBasic(req?: any): Promise<{
         id: any;
         name: any;

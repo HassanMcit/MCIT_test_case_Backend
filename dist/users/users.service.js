@@ -72,6 +72,9 @@ let UsersService = class UsersService {
             };
         });
     }
+    publishNotification(notification) {
+        this.notificationEvents$.next(notification);
+    }
     async serveUserPhoto(userId, res) {
         const db = this.databaseService.db;
         const result = await db.query('SELECT id, name, photo, "profileImage" FROM users WHERE id = $1', [userId]);
@@ -242,6 +245,13 @@ let UsersService = class UsersService {
                 assignedProjects,
             };
         }));
+    }
+    async eligibleProjectUsers() {
+        const result = await this.databaseService.db.query("SELECT id,name,role FROM users WHERE role IN ('tester','admin') ORDER BY name,id");
+        return result.rows;
+    }
+    async eligibleTesters() {
+        return (await this.databaseService.db.query("SELECT id,name FROM users WHERE role='tester' ORDER BY name,id")).rows;
     }
     async findAllBasic(req) {
         const db = this.databaseService.db;
@@ -474,7 +484,7 @@ let UsersService = class UsersService {
     async getNotifications(userId) {
         const db = this.databaseService.db;
         try {
-            const res = await db.query(`SELECT id, "userId", title, message, "projectId", "read", "createdAt"
+            const res = await db.query(`SELECT id, "userId", title, message, "titleEn", "messageEn", link, "projectId", "read", "createdAt"
          FROM notifications
          WHERE "userId" = $1
          ORDER BY "createdAt" DESC

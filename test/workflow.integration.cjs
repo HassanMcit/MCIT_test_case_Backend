@@ -11,6 +11,7 @@ const { PGlite } = require(
     ),
 );
 const { DatabaseService } = require('../dist/database/database.service');
+const { migrateTestCaseImports } = require('../dist/database/test-case-import-migration');
 const {
   migrateWorkflow,
   workflowSql,
@@ -74,6 +75,7 @@ before(async () => {
     null,
   );
   await migrateWorkflow(adapter);
+  await migrateTestCaseImports(adapter);
   service = new WorkflowService(db);
   cases = new TestCasesService(db, service);
   process.env.JWT_SECRET = secret;
@@ -101,7 +103,7 @@ after(async () => {
   if (pg) await pg.close();
 });
 
-test('migration dry-run rolls back; apply preserves definitions; rerun does not duplicate legacy history', async () => {
+void test('migration dry-run rolls back; apply preserves definitions; rerun does not duplicate legacy history', async () => {
   assert.deepEqual(
     (await db.db.query('SELECT * FROM test_cases ORDER BY id')).rows,
     original,
@@ -120,7 +122,7 @@ test('migration dry-run rolls back; apply preserves definitions; rerun does not 
   assert.equal(result.alreadyApplied, true);
   assert.equal((await service.history(1, q, admin)).meta.total, 1);
 });
-test('JWT and DTO boundaries reject anonymous, tester management, malformed dates and invalid statuses', async () => {
+void test('JWT and DTO boundaries reject anonymous, tester management, malformed dates and invalid statuses', async () => {
   await request(app.getHttpServer()).get('/api/test-cycles').expect(401);
   await request(app.getHttpServer())
     .post('/api/projects/1/releases')
@@ -142,7 +144,7 @@ test('JWT and DTO boundaries reject anonymous, tester management, malformed date
     .set('Authorization', auth(admin))
     .expect(400);
 });
-test('release CRUD, case-insensitive uniqueness and partial date validation', async () => {
+void test('release CRUD, case-insensitive uniqueness and partial date validation', async () => {
   release = await service.createRelease(
     1,
     {
@@ -174,7 +176,7 @@ test('release CRUD, case-insensitive uniqueness and partial date validation', as
     (e) => e.status === 404,
   );
 });
-test('cycle membership is atomic and rejects other-project cases/unassigned testers', async () => {
+void test('cycle membership is atomic and rejects other-project cases/unassigned testers', async () => {
   cycle = await service.createCycle(
     {
       projectId: 1,
@@ -226,7 +228,7 @@ test('cycle membership is atomic and rejects other-project cases/unassigned test
   );
   await service.updateCycle(cycle.id, { status: 'active' }, admin);
 });
-test('project and item authorization enforce ownership even when IDs are known', async () => {
+void test('project and item authorization enforce ownership even when IDs are known', async () => {
   await request(app.getHttpServer())
     .get(`/api/test-cycles/${cycle.id}`)
     .set('Authorization', auth(outsider))
@@ -254,7 +256,7 @@ test('project and item authorization enforce ownership even when IDs are known',
     (e) => e.status === 403,
   );
 });
-test('retests append; definition edits never alter snapshots, results or assignments', async () => {
+void test('retests append; definition edits never alter snapshots, results or assignments', async () => {
   await service.execute(
     cycle.id,
     item.id,
@@ -303,7 +305,7 @@ test('retests append; definition edits never alter snapshots, results or assignm
   );
   assert.equal((await cases.findOne(1, admin)).scenario, 'Changed definition');
 });
-test('execution API rejects actor spoofing, invalid durations/statuses and keeps trusted tester identity', async () => {
+void test('execution API rejects actor spoofing, invalid durations/statuses and keeps trusted tester identity', async () => {
   await request(app.getHttpServer())
     .post(`/api/test-cycles/${cycle.id}/items/${item.id}/executions`)
     .set('Authorization', auth(tester))
@@ -322,7 +324,7 @@ test('execution API rejects actor spoofing, invalid durations/statuses and keeps
   assert.equal(r.body.testerId, 2);
   assert.equal(r.body.testerName, 'Tester');
 });
-test('metrics use latest item results while total executions counts attempts; filters remain scoped', async () => {
+void test('metrics use latest item results while total executions counts attempts; filters remain scoped', async () => {
   const m = await service.metrics({ cycleId: cycle.id }, tester);
   assert.equal(m.summary.total, 2);
   assert.equal(m.summary.blocked, 1);
@@ -341,7 +343,7 @@ test('metrics use latest item results while total executions counts attempts; fi
     2,
   );
 });
-test('legacy result editing appends a compatibility execution; new definitions avoid mutable result storage', async () => {
+void test('legacy result editing appends a compatibility execution; new definitions avoid mutable result storage', async () => {
   await cases.update(
     1,
     {
@@ -386,7 +388,7 @@ test('legacy result editing appends a compatibility execution; new definitions a
     'Success',
   );
 });
-test('history-bearing cases cannot be moved or deleted; completed cycles reject new attempts', async () => {
+void test('history-bearing cases cannot be moved or deleted; completed cycles reject new attempts', async () => {
   await assert.rejects(
     cases.update(1, { projectId: 2 }, admin),
     (e) => e.status === 409,
@@ -402,7 +404,7 @@ test('history-bearing cases cannot be moved or deleted; completed cycles reject 
     'Compatibility retest',
   );
 });
-test('closed releases retain history and reject new cycles', async () => {
+void test('closed releases retain history and reject new cycles', async () => {
   await service.updateRelease(1, release.id, { status: 'released' }, admin);
   await assert.rejects(
     service.createCycle(
@@ -418,12 +420,12 @@ test('closed releases retain history and reject new cycles', async () => {
   );
   assert.ok((await service.history(1, q, admin)).meta.total >= 4);
 });
-test('strict date validation rejects invalid calendars and reversed ranges', () => {
+void test('strict date validation rejects invalid calendars and reversed ranges', () => {
   assert.throws(() => validateDates('2026-02-30', '2026-03-01'));
   assert.throws(() => validateDates('2026-02-02', '2026-01-01'));
   assert.doesNotThrow(() => validateDates('2028-02-29', null));
 });
-test('the same case preserves outcomes across releases and snapshots the revised definition', async () => {
+void test('the same case preserves outcomes across releases and snapshots the revised definition', async () => {
   const hotfix = await service.createRelease(
     1,
     { name: 'Release Hotfix', version: '1.0 Hotfix', status: 'testing' },
@@ -463,7 +465,7 @@ test('the same case preserves outcomes across releases and snapshots the revised
   assert.equal(result.body.summary.passed, 1);
   assert.equal(result.body.totalExecutions, 1);
 });
-test('case selection searches and paginates beyond 100 rows without truncating totals', async () => {
+void test('case selection searches and paginates beyond 100 rows without truncating totals', async () => {
   await db.db.query(
     `INSERT INTO test_cases("testId",module,scenario,steps,"expectedResult","projectId") SELECT 'TC-'||lpad(n::text,4,'0'),'Project One','Paginated case '||n,'["Step"]','Expected',1 FROM generate_series(100,204) n`,
   );

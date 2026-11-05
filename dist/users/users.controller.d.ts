@@ -48,6 +48,8 @@ export declare class UsersController {
         role: any;
         photo: string;
     }[]>;
+    eligibleProjectUsers(req: any): Promise<any[]>;
+    eligibleTesters(req: any): Promise<any[]>;
     getMyAssignedProjects(req: any): Promise<any[]>;
     getNotifications(req: any): Promise<{
         notifications: any[];

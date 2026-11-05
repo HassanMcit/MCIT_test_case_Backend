@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const test_cases_controller_1 = require("./test-cases.controller");
 const test_cases_service_1 = require("./test-cases.service");
 const workflow_module_1 = require("../workflow/workflow.module");
+const garage_import_service_1 = require("./garage-import.service");
 let TestCasesModule = class TestCasesModule {
 };
 exports.TestCasesModule = TestCasesModule;
@@ -18,7 +19,7 @@ exports.TestCasesModule = TestCasesModule = __decorate([
     (0, common_1.Module)({
         imports: [workflow_module_1.WorkflowModule],
         controllers: [test_cases_controller_1.TestCasesController],
-        providers: [test_cases_service_1.TestCasesService],
+        providers: [test_cases_service_1.TestCasesService, garage_import_service_1.GarageImportService],
     })
 ], TestCasesModule);
 //# sourceMappingURL=test-cases.module.js.map

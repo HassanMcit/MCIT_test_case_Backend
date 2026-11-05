@@ -21,6 +21,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/scripts ./scripts
 
 # Create directory for persistent SQLite database
 RUN mkdir -p /app/data

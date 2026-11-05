@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { migrateCacheRevision } from './cache-revision-migration';
 import { migrateProjectDeadlines } from './project-deadlines-migration';
 import { migrateWorkflow } from './workflow-migration';
+import { migrateTestCaseImports } from './test-case-import-migration';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -27,6 +28,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await migrateWorkflow(this.db);
     await migrateProjectDeadlines(this.db);
     await migrateCacheRevision(this.db);
+    await migrateTestCaseImports(this.db);
     // await this.runMigrations();
     await this.seedInitialData();
   }

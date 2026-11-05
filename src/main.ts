@@ -6,6 +6,7 @@ import { json, urlencoded } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
+import { createCorsOptions } from './security/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -23,12 +24,7 @@ async function bootstrap() {
   app.useStaticAssets(uploadDir, { prefix: '/api/uploads/' });
 
   // ── CORS ─────────────────────────────────────────────────────────
-  app.enableCors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Accept'],
-  });
+  app.enableCors(createCorsOptions(process.env.CORS_ALLOWED_ORIGINS));
 
   // ── Global Validation Pipe ───────────────────────────────────────
   app.useGlobalPipes(
@@ -74,4 +70,9 @@ async function bootstrap() {
   console.log(`📚 Swagger docs at  http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+bootstrap().catch(() => {
+  // Fail closed before serving traffic. Do not log connection strings or
+  // arbitrary exception messages from configuration/database initialization.
+  console.error('Backend startup failed; review deployment configuration and server logs.');
+  process.exit(1);
+});

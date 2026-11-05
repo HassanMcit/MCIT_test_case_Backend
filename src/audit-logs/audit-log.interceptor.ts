@@ -11,6 +11,15 @@ import { AuditLogsService, parseDeviceSummary, generateDeterministicMac } from '
 function resolveActionInfo(method: string, url: string, body: any): { action: string; category: string; description: string } {
   const cleanUrl = url.split('?')[0];
 
+  if (method === 'POST' && cleanUrl.endsWith('/api/test-cases/bulk-import/garage')) {
+    const preview = body?.dryRun !== false;
+    return {
+      action: preview ? 'Preview Garage test case import' : 'Import Garage test cases',
+      category: 'TEST_CASES',
+      description: preview ? 'Validated import plan; no test cases written' : 'Requested atomic Garage workbook import',
+    };
+  }
+
   // Test cases
   if (cleanUrl.includes('/api/test-cases')) {
     if (method === 'POST') {
@@ -164,13 +173,15 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     const startTime = Date.now();
 
+    // record() catches/logs its own failures. Keep audit I/O asynchronous so it
+    // does not delay or change the existing business response.
     return next.handle().pipe(
       tap({
         next: (resData) => {
-          this.record(req, resData, 'success', startTime);
+          void this.record(req, resData, 'success', startTime);
         },
         error: (err) => {
-          this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
+          void this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
         },
       })
     );

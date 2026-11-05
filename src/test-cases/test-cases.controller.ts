@@ -22,12 +22,30 @@ import {
 } from '@nestjs/swagger';
 import { TestCasesService } from './test-cases.service';
 import { CreateTestCaseDto, UpdateTestCaseDto } from './dto/test-case.dto';
+import { GarageImportDto } from './dto/garage-import.dto';
+import { GarageImportService } from './garage-import.service';
 
 @ApiTags('Test Cases')
 @ApiBearerAuth('access-token')
 @Controller('test-cases')
 export class TestCasesController {
-  constructor(private readonly testCasesService: TestCasesService) {}
+  constructor(
+    private readonly testCasesService: TestCasesService,
+    private readonly garageImport: GarageImportService,
+  ) {}
+
+  @Post('bulk-import/garage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Admin-only Garage workbook preview or atomic import' })
+  bulkImport(@Body() dto: GarageImportDto, @Request() req: any) {
+    return this.garageImport.run(dto, req.user);
+  }
+
+  @Get('bulk-import/garage/:batchHash')
+  @ApiOperation({ summary: 'Admin-only verification against persisted Garage source data' })
+  verifyImport(@Param('batchHash') batchHash: string, @Request() req: any) {
+    return this.garageImport.verify(batchHash, req.user);
+  }
 
   /**
    * POST /api/test-cases

@@ -15,6 +15,14 @@ const operators_1 = require("rxjs/operators");
 const audit_logs_service_1 = require("./audit-logs.service");
 function resolveActionInfo(method, url, body) {
     const cleanUrl = url.split('?')[0];
+    if (method === 'POST' && cleanUrl.endsWith('/api/test-cases/bulk-import/garage')) {
+        const preview = body?.dryRun !== false;
+        return {
+            action: preview ? 'Preview Garage test case import' : 'Import Garage test cases',
+            category: 'TEST_CASES',
+            description: preview ? 'Validated import plan; no test cases written' : 'Requested atomic Garage workbook import',
+        };
+    }
     if (cleanUrl.includes('/api/test-cases')) {
         if (method === 'POST') {
             const tcId = body?.testId || 'حالة اختبار';
@@ -150,10 +158,10 @@ let AuditLogInterceptor = class AuditLogInterceptor {
         const startTime = Date.now();
         return next.handle().pipe((0, operators_1.tap)({
             next: (resData) => {
-                this.record(req, resData, 'success', startTime);
+                void this.record(req, resData, 'success', startTime);
             },
             error: (err) => {
-                this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
+                void this.record(req, null, `failed: ${err?.message || 'Error'}`, startTime);
             },
         }));
     }

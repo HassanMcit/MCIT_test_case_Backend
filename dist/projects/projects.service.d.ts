@@ -4,6 +4,7 @@ export declare class ProjectsService {
     private readonly databaseService;
     constructor(databaseService: DatabaseService);
     create(dto: CreateProjectDto): Promise<any>;
+    private saveProject;
     findAll(query: {
         environment?: string;
         status?: string;

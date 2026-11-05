@@ -4,12 +4,29 @@ exports.GARAGE_WORKBOOK_SEED_MIGRATION = void 0;
 exports.migrateGarageWorkbookSeed = migrateGarageWorkbookSeed;
 const node_crypto_1 = require("node:crypto");
 const garage_workbook_data_1 = require("./garage-workbook-data");
-const garage_import_service_1 = require("../test-cases/garage-import.service");
 exports.GARAGE_WORKBOOK_SEED_MIGRATION = '20261105_garage_workbook_seed_v1';
 const SOURCE_KEY = 'garage-system-testing-report-v1';
 const TARGET_PROJECT = 'Testing Garage System';
 const TARGET_APPLICATION = 'Garage System';
 const sha256 = (value) => (0, node_crypto_1.createHash)('sha256').update(JSON.stringify(value)).digest('hex');
+function prepareRows() {
+    return garage_workbook_data_1.GARAGE_WORKBOOK_ROWS.map((row, index) => {
+        const original = row.original;
+        const testId = `TC_${String(index + 1).padStart(3, '0')}`;
+        const status = original.Status === 'Pass' ? 'passed' : 'failed';
+        const plannedAt = index < 30
+            ? new Date(Date.UTC(2026, 10, 5, 7, index * 5)).toISOString()
+            : null;
+        return {
+            original,
+            testId,
+            sourceRow: index + 1,
+            rowHash: sha256(original),
+            status,
+            plannedAt,
+        };
+    });
+}
 async function migrateGarageWorkbookSeed(pool, dryRun = false) {
     const client = await pool.connect();
     try {
@@ -106,10 +123,7 @@ async function migrateGarageWorkbookSeed(pool, dryRun = false) {
                 reassignedStrayCount++;
             }
         }
-        const validatedRows = (0, garage_import_service_1.garageRows)({
-            dryRun: true,
-            rows: garage_workbook_data_1.GARAGE_WORKBOOK_ROWS,
-        });
+        const validatedRows = prepareRows();
         const batchHash = sha256(validatedRows.map((r) => r.original));
         let insertedCount = 0;
         let updatedCount = 0;

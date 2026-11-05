@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import { GARAGE_WORKBOOK_ROWS } from './garage-workbook-data';
-import { garageRows } from '../test-cases/garage-import.service';
 
 export const GARAGE_WORKBOOK_SEED_MIGRATION =
   '20261105_garage_workbook_seed_v1';
@@ -11,6 +10,26 @@ const TARGET_APPLICATION = 'Garage System';
 
 const sha256 = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+function prepareRows() {
+  return GARAGE_WORKBOOK_ROWS.map((row, index) => {
+    const original = row.original as Record<string, string | null>;
+    const testId = `TC_${String(index + 1).padStart(3, '0')}`;
+    const status = original.Status === 'Pass' ? 'passed' : 'failed';
+    const plannedAt =
+      index < 30
+        ? new Date(Date.UTC(2026, 10, 5, 7, index * 5)).toISOString()
+        : null;
+    return {
+      original,
+      testId,
+      sourceRow: index + 1,
+      rowHash: sha256(original),
+      status,
+      plannedAt,
+    };
+  });
+}
 
 export async function migrateGarageWorkbookSeed(pool: Pool, dryRun = false) {
   const client = await pool.connect();
@@ -113,8 +132,6 @@ export async function migrateGarageWorkbookSeed(pool: Pool, dryRun = false) {
     );
 
     // 3. Clean up any stray non-imported manual "Garage System" rows
-    // (e.g., TC-0034 / TC-0035 accidentally created under "Testing Attendance Reports"
-    // with module = 'Garage System', or stray TC-0004 in "Testing Garage System")
     const hasExecutionsTable = (
       await client.query(`SELECT to_regclass('public.test_executions') AS t`)
     ).rows[0]?.t;
@@ -160,11 +177,8 @@ export async function migrateGarageWorkbookSeed(pool: Pool, dryRun = false) {
       }
     }
 
-    // 4. Validate and import all 51 rows from The Garage System Testing Report.xlsx
-    const validatedRows = garageRows({
-      dryRun: true,
-      rows: GARAGE_WORKBOOK_ROWS,
-    });
+    // 4. Import all 51 rows from The Garage System Testing Report.xlsx
+    const validatedRows = prepareRows();
     const batchHash = sha256(validatedRows.map((r) => r.original));
 
     let insertedCount = 0;
@@ -174,7 +188,6 @@ export async function migrateGarageWorkbookSeed(pool: Pool, dryRun = false) {
       const ownerId = index < 30 ? alaa.id : hassan.id;
       const o = row.original;
 
-      // Check if this row is already imported or exists by (projectId, testId)
       const existingImportRes = await client.query(
         `SELECT i."testCaseId", tc.id AS tc_id
          FROM test_case_imports i
@@ -240,7 +253,6 @@ export async function migrateGarageWorkbookSeed(pool: Pool, dryRun = false) {
         );
         updatedCount++;
       } else {
-        // Also check if a test_cases row with (projectId, testId) exists without import metadata
         const existingTcRes = await client.query(
           `SELECT id FROM test_cases WHERE "projectId" = $1 AND "testId" = $2 LIMIT 1`,
           [project.id, row.testId],

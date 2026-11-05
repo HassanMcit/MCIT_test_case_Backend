@@ -26,6 +26,7 @@ const {
 const {
   collectBaseline,
   connectionUsesTls,
+  connectionVerifiesTlsPeer,
 } = require('../scripts/production-baseline.cjs');
 const { JwtStrategy } = require('../dist/auth/jwt.strategy');
 const { JwtAuthGuard } = require('../dist/auth/jwt-auth.guard');
@@ -469,6 +470,37 @@ void test('Render runtime probe reads schema, owners, case fingerprint and RLS w
     true,
   );
   assert.equal(connectionUsesTls({ connection: { stream: {} } }), false);
+  assert.equal(
+    connectionVerifiesTlsPeer({
+      connection: { stream: { encrypted: true, authorized: true } },
+    }),
+    true,
+  );
+  assert.equal(
+    connectionVerifiesTlsPeer({
+      connection: { stream: { encrypted: true, authorized: false } },
+    }),
+    false,
+  );
+  const tlsAdapter = (authorized) => ({
+    query: adapter.query,
+    connect: async () => ({
+      query: adapter.query,
+      release() {},
+      connection: { stream: { encrypted: true, authorized } },
+    }),
+  });
+  const unverifiedPeer = await collectBaseline(tlsAdapter(false), {
+    expectedCount: 52,
+  });
+  assert.equal(
+    unverifiedPeer.blockers.some((b) => /certificate/.test(b)),
+    true,
+  );
+  const verifiedPeer = await collectBaseline(tlsAdapter(true), {
+    expectedCount: 52,
+  });
+  assert.deepEqual(verifiedPeer.blockers, []);
   await adapter.query(
     'CREATE ROLE isolated_baseline_reader; GRANT USAGE ON SCHEMA public TO isolated_baseline_reader; GRANT SELECT ON ALL TABLES IN SCHEMA public TO isolated_baseline_reader; SET ROLE isolated_baseline_reader;',
   );

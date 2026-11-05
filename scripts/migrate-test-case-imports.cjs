@@ -1,6 +1,9 @@
 // Run inside Render with its existing DATABASE_URL. Never loads a local .env.
 const { Pool } = require('pg');
-const { connectionUsesTls } = require('./production-baseline.cjs');
+const {
+  connectionUsesTls,
+  connectionVerifiesTlsPeer,
+} = require('./production-baseline.cjs');
 const {
   migrateTestCaseImports,
 } = require('../dist/database/test-case-import-migration');
@@ -57,12 +60,22 @@ async function main() {
         'Database role cannot create the provenance table; have the authorized database owner review the migration',
       );
     const clientTls = connectionUsesTls(db);
+    const tlsPeerVerified = connectionVerifiesTlsPeer(db);
     console.log(
-      JSON.stringify({ prerequisitesApplied: true, ...tables, clientTls }),
+      JSON.stringify({
+        prerequisitesApplied: true,
+        ...tables,
+        clientTls,
+        tlsPeerVerified,
+      }),
     );
     if (!clientTls)
       throw new Error(
         'Database connection is not using TLS. Review provider-issued TLS settings and obtain approval before any configuration change',
+      );
+    if (!tlsPeerVerified)
+      throw new Error(
+        'TLS peer certificate is not verified. Review provider CA/settings; do not disable certificate verification',
       );
     if (tables.provenance) {
       const security = (

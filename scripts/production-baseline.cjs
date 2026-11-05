@@ -10,6 +10,11 @@ const OWNERS = ['Alaa Eldin Mohsen', 'Hassan Ali'];
 function connectionUsesTls(client) {
   return client.connection?.stream?.encrypted === true;
 }
+function connectionVerifiesTlsPeer(client) {
+  return (
+    connectionUsesTls(client) && client.connection.stream.authorized === true
+  );
+}
 async function collectBaseline(
   pool,
   { expectedCount = 65, requireTls = true } = {},
@@ -19,6 +24,7 @@ async function collectBaseline(
     checkedAt: new Date().toISOString(),
     mode: 'read-only',
     clientTls: connectionUsesTls(client),
+    tlsPeerVerified: connectionVerifiesTlsPeer(client),
     blockers: [],
     providerChecksStillRequired: [
       'Render/Vercel deployment branches and rollback versions',
@@ -34,6 +40,10 @@ async function collectBaseline(
     if (requireTls && !result.clientTls)
       result.blockers.push(
         'Runtime database client connection is not using TLS; review settings without changing them',
+      );
+    if (requireTls && result.clientTls && !result.tlsPeerVerified)
+      result.blockers.push(
+        'Runtime TLS peer certificate is not verified; review provider CA/settings without disabling validation',
       );
     result.tables = (
       await client.query(`SELECT to_regclass('public.test_cases') AS cases,
@@ -186,7 +196,11 @@ async function collectBaseline(
     client.release();
   }
 }
-module.exports = { collectBaseline, connectionUsesTls };
+module.exports = {
+  collectBaseline,
+  connectionUsesTls,
+  connectionVerifiesTlsPeer,
+};
 // Also works when pasted as node stdin in the existing Render Shell.
 if (!module.parent) {
   if (!process.env.DATABASE_URL) {

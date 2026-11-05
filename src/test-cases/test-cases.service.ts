@@ -359,9 +359,28 @@ export class TestCasesService {
   // ── DELETE /api/test-cases/:id ───────────────────────────────────
   async remove(id: number, currentUser: any) {
     await this.workflow.caseAccess(id,currentUser);
-    const db = this.databaseService.db;
-    await this.findOne(id);
-    try { await db.query('DELETE FROM test_cases WHERE id = $1', [id]); }
+    try {
+      await this.workflow.transaction(async db => {
+        await db.query('SELECT id FROM test_cases WHERE id = $1 FOR UPDATE', [id]);
+        await this.workflow.caseAccess(id, currentUser, db);
+        const dependencies = await db.query(
+          `SELECT 1 FROM test_cycle_items WHERE "testCaseId" = $1
+           UNION ALL
+           SELECT 1 FROM test_executions WHERE "testCaseId" = $1
+             AND ("cycleItemId" IS NOT NULL OR source = 'cycle') LIMIT 1`,
+          [id],
+        );
+        if (dependencies.rowCount) {
+          throw new ConflictException('Test case has cycle or execution history and cannot be deleted');
+        }
+        await db.query(
+          `DELETE FROM test_executions WHERE "testCaseId" = $1
+           AND "cycleItemId" IS NULL AND source IN ('legacy', 'compatibility')`,
+          [id],
+        );
+        await db.query('DELETE FROM test_cases WHERE id = $1', [id]);
+      });
+    }
     catch(error: any) {if(['23503','23001'].includes(error?.code)) throw new ConflictException('Test case has cycle or execution history and cannot be deleted');throw error;}
     return { message: `Test case #${id} deleted successfully` };
   }

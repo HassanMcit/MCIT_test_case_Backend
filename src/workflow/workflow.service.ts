@@ -604,6 +604,76 @@ export class WorkflowService {
       `SELECT e.*,COALESCE(e."testerName",u.name) AS "testerName",c.name AS "cycleName",r.name AS "releaseName",r.version FROM test_executions e LEFT JOIN users u ON u.id=e."testerId" LEFT JOIN test_cycle_items i ON i.id=e."cycleItemId" LEFT JOIN test_cycles c ON c.id=i."cycleId" LEFT JOIN releases r ON r.id=c."releaseId" WHERE e."testCaseId"=$1 ORDER BY e.id DESC LIMIT $2 OFFSET $3`,
       [id, limit, (page - 1) * limit],
     );
+    if (count.rows[0].total === 0) {
+      const hasImports = (
+        await this.database.db.query(
+          `SELECT to_regclass('public.test_case_imports') AS t`,
+        )
+      ).rows[0]?.t;
+      const tcRes = await this.database.db.query(
+        hasImports
+          ? `SELECT tc.*, u.name AS "testerName", p.environment, imp."plannedAt", imp."importedAt"
+             FROM test_cases tc
+             LEFT JOIN users u ON u.id = tc."testerId"
+             LEFT JOIN projects p ON p.id = tc."projectId"
+             LEFT JOIN test_case_imports imp ON imp."testCaseId" = tc.id
+             WHERE tc.id = $1
+               AND (tc.status IN ('passed','failed','blocked','skipped') OR nullif(btrim(tc."actualResult"),'') IS NOT NULL)`
+          : `SELECT tc.*, u.name AS "testerName", p.environment
+             FROM test_cases tc
+             LEFT JOIN users u ON u.id = tc."testerId"
+             LEFT JOIN projects p ON p.id = tc."projectId"
+             WHERE tc.id = $1
+               AND (tc.status IN ('passed','failed','blocked','skipped') OR nullif(btrim(tc."actualResult"),'') IS NOT NULL)`,
+        [id],
+      );
+      if (tcRes.rowCount) {
+        const tc = tcRes.rows[0];
+        const execTime =
+          tc.plannedAt || tc.importedAt || tc.executedAt || tc.createdAt;
+        return this.paginated(
+          [
+            {
+              id: tc.id,
+              testCaseId: tc.id,
+              cycleItemId: null,
+              projectId: tc.projectId,
+              testerId: tc.testerId,
+              testerName: tc.testerName || null,
+              status: ['passed', 'failed', 'blocked', 'skipped'].includes(
+                tc.status,
+              )
+                ? tc.status
+                : 'not_run',
+              actualResult: tc.actualResult || null,
+              notes: tc.notes || null,
+              environment: tc.environment || null,
+              executedAt: execTime,
+              recordedAt: tc.importedAt || tc.createdAt || execTime,
+              durationSeconds: null,
+              releaseName: null,
+              version: null,
+              cycleName: null,
+              source: 'legacy',
+              snapshot: {
+                id: tc.id,
+                testId: tc.testId,
+                module: tc.module,
+                pageName: tc.pageName,
+                scenario: tc.scenario,
+                preConditions: tc.preConditions,
+                steps: tc.steps,
+                expectedResult: tc.expectedResult,
+                priority: tc.priority,
+                severity: tc.severity,
+              },
+            },
+          ],
+          1,
+          q,
+        );
+      }
+    }
     return this.paginated(data.rows, count.rows[0].total, q);
   }
   async metrics(q: WorkflowQueryDto, user: WorkflowUser) {

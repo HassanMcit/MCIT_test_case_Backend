@@ -48,6 +48,7 @@ const jwt_1 = require("@nestjs/jwt");
 const bcrypt = __importStar(require("bcryptjs"));
 const crypto = __importStar(require("node:crypto"));
 const database_service_1 = require("../database/database.service");
+const account_email_policy_1 = require("./account-email-policy");
 function generateDeterministicMac(seed) {
     const hash = crypto.createHash('sha256').update(seed || 'mcit-device').digest('hex');
     const firstByte = ((parseInt(hash.slice(0, 2), 16) | 0x02) & 0xfe)
@@ -119,6 +120,7 @@ let AuthService = class AuthService {
     }
     async login(dto, req) {
         const cleanEmail = (dto.email || '').trim().toLowerCase();
+        (0, account_email_policy_1.assertAllowedAccountEmail)(cleanEmail);
         const userResult = await this.databaseService.db.query('SELECT id, name, email, password, role, photo, "profileImage", "updatedAt" FROM users WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
         const user = userResult.rows[0];
         if (!user) {
@@ -282,28 +284,11 @@ let AuthService = class AuthService {
         };
     }
     async forgotPassword(dto) {
-        const userResult = await this.databaseService.db.query('SELECT id, name, email, role FROM users WHERE email = $1', [dto.email]);
-        const user = userResult.rows[0];
-        if (!user) {
-            throw new common_1.NotFoundException('البريد الإلكتروني غير مسجل في النظام');
-        }
-        await this.databaseService.db.query('UPDATE password_resets SET used = 1 WHERE email = $1 AND used = 0', [dto.email]);
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        await this.databaseService.db.query(`
-        INSERT INTO password_resets (email, code, "expiresAt", used)
-        VALUES ($1, $2, $3, 0)
-      `, [dto.email, code, expiresAt]);
-        console.log(`🔑 [Password Reset OTP] User: ${user.name} (${user.email}), Role: ${user.role}, Code: ${code}`);
-        return {
-            message: `تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ ${user.name}`,
-            userId: user.id,
-            email: user.email,
-            code: code,
-            expiresIn: '15 دقيقة',
-        };
+        (0, account_email_policy_1.assertAllowedAccountEmail)(dto.email);
+        throw new common_1.ServiceUnavailableException('Password recovery is temporarily unavailable until secure email delivery is configured.');
     }
     async verifyResetCode(dto) {
+        (0, account_email_policy_1.assertAllowedAccountEmail)(dto.email);
         const recordResult = await this.databaseService.db.query(`
         SELECT id, email, code, "expiresAt", used
         FROM password_resets
@@ -324,6 +309,7 @@ let AuthService = class AuthService {
         };
     }
     async resetPassword(dto) {
+        (0, account_email_policy_1.assertAllowedAccountEmail)(dto.email);
         if (dto.newPassword !== dto.confirmPassword) {
             throw new common_1.BadRequestException('كلمة المرور الجديدة وتأكيد كلمة المرور غير متطابقين');
         }

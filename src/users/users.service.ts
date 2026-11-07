@@ -14,6 +14,7 @@ import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { assertAllowedAccountEmail } from '../auth/account-email-policy';
 
 @Injectable()
 export class UsersService {
@@ -117,6 +118,7 @@ export class UsersService {
 
   // ── POST /api/users (Admin Only) ─────────────────────────────────
   async create(dto: CreateUserDto, req?: any) {
+    assertAllowedAccountEmail(dto.email);
     const db = this.databaseService.db;
 
     const existingEmailResult = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [dto.email.trim()]);

@@ -4,6 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -14,6 +15,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { assertAllowedAccountEmail } from './account-email-policy';
 
 export interface UserProfile {
   id: number;
@@ -102,6 +104,7 @@ export class AuthService {
   // ── Login ──────────────────────────────────────────────────────────
   async login(dto: LoginDto, req?: any) {
     const cleanEmail = (dto.email || '').trim().toLowerCase();
+    assertAllowedAccountEmail(cleanEmail);
     const userResult = await this.databaseService.db.query(
       'SELECT id, name, email, password, role, photo, "profileImage", "updatedAt" FROM users WHERE LOWER(email) = LOWER($1)',
       [cleanEmail]
@@ -341,46 +344,18 @@ export class AuthService {
 
   // ── Forgot Password: Send/Generate OTP ─────────────────────────────
   async forgotPassword(dto: ForgotPasswordDto) {
-    const userResult = await this.databaseService.db.query(
-      'SELECT id, name, email, role FROM users WHERE email = $1',
-      [dto.email]
+    assertAllowedAccountEmail(dto.email);
+
+    // No mail delivery provider is configured. Fail closed instead of creating
+    // a reset code that would have to be exposed in logs or in the API response.
+    throw new ServiceUnavailableException(
+      'Password recovery is temporarily unavailable until secure email delivery is configured.',
     );
-    const user = userResult.rows[0] as { id: number; name: string; email: string; role: string } | undefined;
-
-    if (!user) {
-      throw new NotFoundException('البريد الإلكتروني غير مسجل في النظام');
-    }
-
-    // Invalidate previous active codes for this email
-    await this.databaseService.db.query(
-      'UPDATE password_resets SET used = 1 WHERE email = $1 AND used = 0',
-      [dto.email]
-    );
-
-    // Generate 6-digit random code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-
-    await this.databaseService.db.query(`
-        INSERT INTO password_resets (email, code, "expiresAt", used)
-        VALUES ($1, $2, $3, 0)
-      `,
-      [dto.email, code, expiresAt]
-    );
-
-    console.log(`🔑 [Password Reset OTP] User: ${user.name} (${user.email}), Role: ${user.role}, Code: ${code}`);
-
-    return {
-      message: `تم إنشاء كود استعادة كلمة المرور وإرساله بنجاح إلى البريد الإلكتروني الخاص بـ ${user.name}`,
-      userId: user.id,
-      email: user.email,
-      code: code,
-      expiresIn: '15 دقيقة',
-    };
   }
 
   // ── Verify Reset Code ──────────────────────────────────────────────
   async verifyResetCode(dto: VerifyResetCodeDto) {
+    assertAllowedAccountEmail(dto.email);
     const recordResult = await this.databaseService.db.query(`
         SELECT id, email, code, "expiresAt", used
         FROM password_resets
@@ -406,6 +381,7 @@ export class AuthService {
 
   // ── Reset Password with Code ───────────────────────────────────────
   async resetPassword(dto: ResetPasswordDto) {
+    assertAllowedAccountEmail(dto.email);
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException('كلمة المرور الجديدة وتأكيد كلمة المرور غير متطابقين');
     }

@@ -10,8 +10,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ForgotPasswordDto = void 0;
-const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const account_email_policy_1 = require("../account-email-policy");
 class ForgotPasswordDto {
 }
 exports.ForgotPasswordDto = ForgotPasswordDto;
@@ -20,9 +20,7 @@ __decorate([
         example: 'h.ali@mcit.gov.eg',
         description: 'البريد الإلكتروني لحساب المستخدم أو المدير',
     }),
-    (0, class_validator_1.Matches)(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-        message: 'البريد الإلكتروني غير صالح. يجب أن يطابق الصيغة user@domain.com',
-    }),
+    (0, account_email_policy_1.IsAllowedAccountEmail)(),
     __metadata("design:type", String)
 ], ForgotPasswordDto.prototype, "email", void 0);
 //# sourceMappingURL=forgot-password.dto.js.map

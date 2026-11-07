@@ -26,13 +26,7 @@ export declare class AuthController {
         message: string;
         userId: number;
     }>;
-    forgotPassword(dto: ForgotPasswordDto): Promise<{
-        message: string;
-        userId: number;
-        email: string;
-        code: string;
-        expiresIn: string;
-    }>;
+    forgotPassword(dto: ForgotPasswordDto): Promise<void>;
     verifyResetCode(dto: VerifyResetCodeDto): Promise<{
         valid: boolean;
         message: string;

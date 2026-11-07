@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { DatabaseService } from '../database/database.service';
+import { getJwtSecret } from './jwt-secret';
 
 export interface JwtPayload {
   sub: number;
@@ -11,29 +12,15 @@ export interface JwtPayload {
   iat?: number;
 }
 
+export const extractAuthorizationHeaderJwt = ExtractJwt.fromAuthHeaderAsBearerToken();
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly databaseService: DatabaseService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (req: any) => {
-          if (req?.query?.token && typeof req.query.token === 'string') {
-            return req.query.token;
-          }
-          const auth = req?.headers?.authorization;
-          if (!auth) return null;
-          if (typeof auth === 'string') {
-            if (auth.startsWith('Bearer ')) {
-              return auth.substring(7).trim();
-            }
-            return auth.trim();
-          }
-          return null;
-        },
-      ]),
+      jwtFromRequest: extractAuthorizationHeaderJwt,
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'qa_suite_super_secret_key_2025_mcit',
+      secretOrKey: getJwtSecret(),
     });
   }
 

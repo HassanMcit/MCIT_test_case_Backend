@@ -1,17 +1,13 @@
 import { IsString, IsOptional, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsAllowedAccountEmail } from '../account-email-policy';
 
 export class LoginDto {
   @ApiProperty({
     example: 'karim@mcit.gov.eg',
     description: 'User email address (validated with Regex)',
   })
-  @Matches(
-    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-    {
-      message: 'البريد الإلكتروني غير صالح. يجب أن يطابق الصيغة user@domain.com',
-    },
-  )
+  @IsAllowedAccountEmail()
   email: string;
 
   @ApiProperty({

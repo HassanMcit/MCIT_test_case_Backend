@@ -7,6 +7,7 @@ export interface JwtPayload {
     sid?: string;
     iat?: number;
 }
+export declare const extractAuthorizationHeaderJwt: import("passport-jwt").JwtFromRequestFunction<any>;
 declare const JwtStrategy_base: new (...args: [opt: import("passport-jwt").StrategyOptionsWithRequest] | [opt: import("passport-jwt").StrategyOptionsWithoutRequest]) => Strategy & {
     validate(...args: any[]): unknown;
 };

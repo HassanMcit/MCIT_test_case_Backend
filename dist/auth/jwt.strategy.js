@@ -9,34 +9,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JwtStrategy = void 0;
+exports.JwtStrategy = exports.extractAuthorizationHeaderJwt = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
 const database_service_1 = require("../database/database.service");
+const jwt_secret_1 = require("./jwt-secret");
+exports.extractAuthorizationHeaderJwt = passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken();
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     constructor(databaseService) {
         super({
-            jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([
-                passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
-                (req) => {
-                    if (req?.query?.token && typeof req.query.token === 'string') {
-                        return req.query.token;
-                    }
-                    const auth = req?.headers?.authorization;
-                    if (!auth)
-                        return null;
-                    if (typeof auth === 'string') {
-                        if (auth.startsWith('Bearer ')) {
-                            return auth.substring(7).trim();
-                        }
-                        return auth.trim();
-                    }
-                    return null;
-                },
-            ]),
+            jwtFromRequest: exports.extractAuthorizationHeaderJwt,
             ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET || 'qa_suite_super_secret_key_2025_mcit',
+            secretOrKey: (0, jwt_secret_1.getJwtSecret)(),
         });
         this.databaseService = databaseService;
     }

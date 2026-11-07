@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LoginDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const account_email_policy_1 = require("../account-email-policy");
 class LoginDto {
 }
 exports.LoginDto = LoginDto;
@@ -20,9 +21,7 @@ __decorate([
         example: 'karim@mcit.gov.eg',
         description: 'User email address (validated with Regex)',
     }),
-    (0, class_validator_1.Matches)(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-        message: 'البريد الإلكتروني غير صالح. يجب أن يطابق الصيغة user@domain.com',
-    }),
+    (0, account_email_policy_1.IsAllowedAccountEmail)(),
     __metadata("design:type", String)
 ], LoginDto.prototype, "email", void 0);
 __decorate([

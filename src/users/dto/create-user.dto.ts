@@ -1,5 +1,6 @@
 import { IsString, Matches, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsAllowedAccountEmail } from '../../auth/account-email-policy';
 
 export class CreateUserDto {
   @ApiPropertyOptional({
@@ -33,12 +34,7 @@ export class CreateUserDto {
     example: 'mahmoud@mcit.gov.eg',
     description: 'Unique email address',
   })
-  @Matches(
-    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-    {
-      message: 'البريد الإلكتروني غير صالح. يجب أن يطابق الصيغة user@domain.com',
-    },
-  )
+  @IsAllowedAccountEmail()
   email: string;
 
   @ApiProperty({

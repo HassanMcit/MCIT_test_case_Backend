@@ -50,6 +50,7 @@ const path = __importStar(require("path"));
 const rxjs_1 = require("rxjs");
 const operators_1 = require("rxjs/operators");
 const database_service_1 = require("../database/database.service");
+const account_email_policy_1 = require("../auth/account-email-policy");
 let UsersService = class UsersService {
     constructor(databaseService) {
         this.databaseService = databaseService;
@@ -122,6 +123,7 @@ let UsersService = class UsersService {
         return res.redirect(DEFAULT_PHOTO_URL);
     }
     async create(dto, req) {
+        (0, account_email_policy_1.assertAllowedAccountEmail)(dto.email);
         const db = this.databaseService.db;
         const existingEmailResult = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [dto.email.trim()]);
         const existingEmail = existingEmailResult.rows[0];

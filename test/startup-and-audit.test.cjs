@@ -10,7 +10,7 @@ const {
 const { createCorsOptions } = require('../dist/security/cors');
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-async function startup({ factoryFails = false, origins = '' } = {}) {
+async function startup({ factoryFails = false, failure, origins = '' } = {}) {
   const exits = [],
     errors = [];
   let listened = false;
@@ -37,6 +37,7 @@ async function startup({ factoryFails = false, origins = '' } = {}) {
     '@nestjs/core': {
       NestFactory: {
         create: async () => {
+          if (failure) throw failure;
           if (factoryFails)
             throw new Error('sensitive-initialization-error-not-for-logs');
           return app;
@@ -102,9 +103,11 @@ void test('startup handles rejected initialization and invalid CORS safely; vali
   assert.equal(rejected.listened, false);
   assert.equal(rejected.errors.length, 1);
   assert.doesNotMatch(rejected.errors[0], /sensitive-initialization/);
+  assert.match(rejected.errors[0], /\[reason=STARTUP_INITIALIZATION_FAILED\]/);
   const invalid = await startup({ origins: '*' });
   assert.deepEqual(invalid.exits, [1]);
   assert.equal(invalid.listened, false);
+  assert.match(invalid.errors[0], /\[reason=CORS_CONFIG_INVALID\]/);
   const valid = await startup();
   assert.equal(valid.listened, true);
   assert.deepEqual(valid.exits, []);
@@ -163,4 +166,23 @@ void test('audit logging remains fire-and-forget and contains writer failures wi
   } finally {
     console.error = originalError;
   }
+});
+
+void test('startup diagnostics classify database failures without exposing raw secrets', async () => {
+  for (const [code, reason] of [
+    ['28P01', 'DB_AUTH_FAILED'], ['57P03', 'DB_UNAVAILABLE'],
+    ['ETIMEDOUT', 'DB_NETWORK_ERROR'], ['ENOTFOUND', 'DB_DNS_LOOKUP_FAILED'],
+    ['ERR_TLS_CERT_ALTNAME_INVALID', 'DB_TLS_VERIFICATION_FAILED'],
+    ['secret://private-host/password', 'STARTUP_INITIALIZATION_FAILED'],
+  ]) {
+    const failure = Object.assign(new Error('private-host password sensitive-detail'), { code });
+    const result = await startup({ failure });
+    assert.deepEqual(result.exits, [1]);
+    assert.equal(result.listened, false);
+    assert.match(result.errors[0], new RegExp('reason=' + reason));
+    assert.doesNotMatch(result.errors[0], /private-host|password|sensitive-detail|secret:/);
+  }
+  const timedOut = await startup({ failure: new Error('timeout expired: sensitive-detail') });
+  assert.match(timedOut.errors[0], /reason=DB_CONNECTION_TIMEOUT/);
+  assert.doesNotMatch(timedOut.errors[0], /sensitive-detail/);
 });

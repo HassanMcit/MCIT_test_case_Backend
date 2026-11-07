@@ -1,8 +1,84 @@
 import type { Pool } from 'pg';
 
+export function normalizeDatabaseUrl(raw?: string): string {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    throw new Error('DATABASE_URL_MISSING');
+  }
+  let value = raw.trim();
+  if (/^psql\s+/i.test(value)) {
+    value = value.replace(/^psql\s+/i, '').trim();
+  }
+  if (
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  const envPrefixMatch = value.match(
+    /^[A-Za-z_][A-Za-z0-9_]*\s*=\s*(postgres(?:ql)?:\/\/.+)$/i,
+  );
+  if (envPrefixMatch) {
+    value = envPrefixMatch[1].trim();
+    if (
+      (value.startsWith("'") && value.endsWith("'")) ||
+      (value.startsWith('"') && value.endsWith('"'))
+    ) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error('DATABASE_URL_INVALID_FORMAT');
+  }
+  if (
+    (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') ||
+    !parsed.hostname
+  ) {
+    throw new Error('DATABASE_URL_INVALID_FORMAT');
+  }
+
+  const sslmode = parsed.searchParams.get('sslmode');
+  const compat = parsed.searchParams.get('uselibpqcompat');
+  if (
+    !compat &&
+    (sslmode === 'require' || sslmode === 'prefer' || sslmode === 'verify-ca')
+  ) {
+    parsed.searchParams.set('sslmode', 'verify-full');
+    return parsed.toString();
+  }
+
+  return value;
+}
+
+async function connectWithColdStartRetry(pool: Pool) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await pool.connect();
+    } catch (error: any) {
+      lastError = error;
+      const code = typeof error?.code === 'string' ? error.code : '';
+      const msg = typeof error?.message === 'string' ? error.message : '';
+      const isTransientWakeup =
+        code === '57P03' ||
+        code === 'ETIMEDOUT' ||
+        code === 'ECONNRESET' ||
+        /timeout expired|Connection terminated/i.test(msg);
+      if (!isTransientWakeup || attempt === 2) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+  throw lastError;
+}
+
 // Fail closed on an unprepared database. Never repair schema or seed data at startup.
 export async function assertRuntimeSchemaReady(pool: Pool) {
-  const db = await pool.connect();
+  const db = await connectWithColdStartRetry(pool);
   try {
     await db.query('BEGIN READ ONLY');
     await db.query("SET LOCAL statement_timeout = '10s'");

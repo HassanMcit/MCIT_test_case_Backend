@@ -2,16 +2,20 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { assertRuntimeSchemaReady } from './runtime-schema';
+import {
+  assertRuntimeSchemaReady,
+  normalizeDatabaseUrl,
+} from './runtime-schema';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   public db!: Pool;
 
   async onModuleInit() {
+    const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
     this.db = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      connectionTimeoutMillis: 10000,
+      connectionString,
+      connectionTimeoutMillis: 30000,
     });
 
     // Verification only: imports, migrations and seeding never run at startup.

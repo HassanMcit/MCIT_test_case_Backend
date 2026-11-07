@@ -48,9 +48,10 @@ const fs = __importStar(require("node:fs"));
 const runtime_schema_1 = require("./runtime-schema");
 let DatabaseService = DatabaseService_1 = class DatabaseService {
     async onModuleInit() {
+        const connectionString = (0, runtime_schema_1.normalizeDatabaseUrl)(process.env.DATABASE_URL);
         this.db = new pg_1.Pool({
-            connectionString: process.env.DATABASE_URL,
-            connectionTimeoutMillis: 10000,
+            connectionString,
+            connectionTimeoutMillis: 30000,
         });
         await (0, runtime_schema_1.assertRuntimeSchemaReady)(this.db);
     }

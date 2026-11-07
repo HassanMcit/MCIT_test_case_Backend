@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: mcit-test-case-backend-staging
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: codex/garage-safe-startup-release
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/docs
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: ALLOW_DATABASE_BOOTSTRAP
+        value: "false"
+      - key: ENABLE_PROJECT_DEADLINE_WORKER
+        value: "false"
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: BACKEND_URL
+        value: https://mcit-test-case-backend-staging.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

@@ -23,7 +23,7 @@ const { JwtAuthGuard } = require('../dist/auth/jwt-auth.guard');
 const { Public } = require('../dist/auth/public.decorator');
 const { DatabaseService } = require('../dist/database/database.service');
 const secret = 'isolated-cors-tests-only-not-production';
-const preview = 'https://trusted-preview.example.test';
+const preview = 'https://mcit-emergency-fixture.netlify.app';
 const developer = 'http://localhost:3000';
 let app,
   writes = 0;
@@ -127,6 +127,7 @@ void test('untrusted origins, suffix lookalikes, unconfigured previews and null 
     'https://untrusted.example',
     `${production}.evil.example`,
     'https://other-preview.vercel.app',
+    'https://untrusted.netlify.app',
     'null',
     'http://localhost:3001',
     `${production}/path`,

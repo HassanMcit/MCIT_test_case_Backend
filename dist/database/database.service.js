@@ -63,6 +63,8 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         catch (err) {
             console.error('❌ Failed to connect to PostgreSQL', err);
         }
+        if (process.env.ALLOW_DATABASE_BOOTSTRAP !== 'true')
+            return;
         await this.initTables();
         await (0, workflow_migration_1.migrateWorkflow)(this.db);
         await (0, project_deadlines_migration_1.migrateProjectDeadlines)(this.db);

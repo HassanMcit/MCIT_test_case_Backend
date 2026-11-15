@@ -25,6 +25,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       console.error('❌ Failed to connect to PostgreSQL', err);
     }
 
+    // Hosting changes/restarts must never mutate an existing production schema
+    // or import/seed data. Bootstrap is a separate, explicit maintenance action.
+    if (process.env.ALLOW_DATABASE_BOOTSTRAP !== 'true') return;
+
     await this.initTables();
     await migrateWorkflow(this.db);
     await migrateProjectDeadlines(this.db);

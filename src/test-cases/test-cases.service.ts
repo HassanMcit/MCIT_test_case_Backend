@@ -147,7 +147,7 @@ export class TestCasesService {
       conditions.push(`(
         (tc."projectId" IS NOT NULL AND tc."projectId" IN (SELECT pa."projectId" FROM project_assignments pa WHERE pa."userId" = ?))
         OR (tc."projectId" IS NULL AND tc.module IS NOT NULL AND tc.module IN (SELECT p.name FROM projects p INNER JOIN project_assignments pa ON p.id = pa."projectId" WHERE pa."userId" = ?))
-        OR tc."testerId" = ?
+        OR COALESCE(base_tc."testerId", tc."testerId") = ?
       )`);
       params.push(currentUserId, currentUserId, currentUserId);
     }
@@ -178,7 +178,7 @@ export class TestCasesService {
     const numberedConditions = conditions.map(c => c.replace(/\?/g, () => `$${pidx++}`));
     const whereClause = numberedConditions.length > 0 ? `WHERE ${numberedConditions.join(' AND ')}` : '';
 
-    const countSql = `SELECT COUNT(*) as total FROM test_cases_current tc ${whereClause}`;
+    const countSql = `SELECT COUNT(*) as total FROM test_cases_current tc LEFT JOIN test_cases base_tc ON base_tc.id = tc.id ${whereClause}`;
     const totalResult = await db.query(countSql, params);
     const total = Number(totalResult.rows[0].total);
 
@@ -190,12 +190,13 @@ export class TestCasesService {
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases_current tc
+      LEFT JOIN test_cases base_tc ON base_tc.id = tc.id
       LEFT JOIN test_case_imports imported ON imported."testCaseId" = tc.id
-      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN users u ON COALESCE(base_tc."testerId", tc."testerId") = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       ${whereClause}
-      ORDER BY COALESCE(tc."executedAt", tc."createdAt") DESC, tc.id DESC
+      ORDER BY COALESCE(tc."createdAt", tc."executedAt") DESC, tc.id DESC
       LIMIT $${pidx++} OFFSET $${pidx++}
     `;
 
@@ -251,8 +252,9 @@ export class TestCasesService {
         u_up.id as updated_by_id, u_up.name as updated_by_name, u_up.email as updated_by_email,
         p.id as project_id, p.name as project_name
       FROM test_cases_current tc
+      LEFT JOIN test_cases base_tc ON base_tc.id = tc.id
       LEFT JOIN test_case_imports imported ON imported."testCaseId" = tc.id
-      LEFT JOIN users u ON tc."testerId" = u.id
+      LEFT JOIN users u ON COALESCE(base_tc."testerId", tc."testerId") = u.id
       LEFT JOIN users u_up ON tc."updatedById" = u_up.id
       LEFT JOIN projects p ON tc."projectId" = p.id
       WHERE tc.id = $1
@@ -352,7 +354,22 @@ export class TestCasesService {
     const tc=(await db.query('SELECT * FROM test_cases WHERE id=$1',[id])).rows[0];
     if (dto.status !== undefined || dto.actualResult !== undefined || dto.executedAt !== undefined || dto.notes !== undefined) {
       const latest=(await db.query('SELECT * FROM test_executions WHERE "testCaseId"=$1 ORDER BY id DESC LIMIT 1',[id])).rows[0];
-      await this.workflow.appendCompatibility(db,tc,{status:dto.status ?? latest?.status ?? 'pending',actualResult:dto.actualResult ?? latest?.actualResult,notes:dto.notes ?? latest?.notes,executedAt:dto.executedAt},currentUser);
+      const norm = (value: unknown) => (value === undefined || value === null ? '' : String(value).trim());
+      const rawCurrentStatus = latest ? latest.status : (tc?.status || 'pending');
+      const currentStatus = rawCurrentStatus === 'not_run' ? 'pending' : rawCurrentStatus;
+      const currentActual = latest ? latest.actualResult : tc?.actualResult;
+      const currentNotes = latest ? latest.notes : tc?.notes;
+      const nextStatus = dto.status !== undefined ? dto.status : currentStatus;
+      const nextActual = dto.actualResult !== undefined ? dto.actualResult : currentActual;
+      const nextNotes = dto.notes !== undefined ? dto.notes : currentNotes;
+      const executionChanged =
+        dto.executedAt !== undefined ||
+        nextStatus !== currentStatus ||
+        norm(nextActual) !== norm(currentActual) ||
+        norm(nextNotes) !== norm(currentNotes);
+      if (executionChanged) {
+        await this.workflow.appendCompatibility(db,tc,{status:nextStatus,actualResult:nextActual,notes:nextNotes,executedAt:dto.executedAt},currentUser);
+      }
     }
     return {id};
     }).then(result=>this.findOne(result.id));

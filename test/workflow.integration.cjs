@@ -489,3 +489,129 @@ void test('case selection searches and paginates beyond 100 rows without truncat
   assert.equal(response.body.meta.total, 105);
   assert.equal(response.body.data.length, 5);
 });
+void test('editing a test case preserves original creator and createdAt across definition-only and outcome updates', async () => {
+  const createdRes = await request(app.getHttpServer())
+    .post('/api/test-cases')
+    .set('Authorization', auth(tester))
+    .send({
+      testId: 'TC-9001',
+      module: 'Project One',
+      scenario: 'Original scenario by tester',
+      steps: ['Step 1'],
+      expectedResult: 'Expected output',
+      priority: 'medium',
+      status: 'pending',
+      projectId: 1,
+    })
+    .expect(201);
+  const caseId = createdRes.body.id;
+  await db.db.query(
+    `UPDATE test_cases SET "createdAt"=NOW() - INTERVAL '2 days',"updatedAt"=NOW() - INTERVAL '2 days',"executedAt"=NOW() - INTERVAL '2 days' WHERE id=$1`,
+    [caseId],
+  );
+  const beforeEdit = (
+    await request(app.getHttpServer())
+      .get(`/api/test-cases/${caseId}`)
+      .set('Authorization', auth(tester))
+      .expect(200)
+  ).body;
+  const fixedCreatedAt = new Date(beforeEdit.createdAt).toISOString();
+  const fixedExecutedAt = new Date(beforeEdit.executedAt).toISOString();
+
+  // Definition-only edit (e.g., admin fixes scenario while UI passes unchanged status/actualResult/notes)
+  const defEditRes = await request(app.getHttpServer())
+    .patch(`/api/test-cases/${caseId}`)
+    .set('Authorization', auth(admin))
+    .send({
+      scenario: 'Refined scenario by admin',
+      status: 'pending',
+      actualResult: null,
+      notes: null,
+    })
+    .expect(200);
+  assert.equal(defEditRes.body.testerId, tester.id);
+  assert.equal(defEditRes.body.tester.id, tester.id);
+  assert.equal(defEditRes.body.updatedById, admin.id);
+  assert.equal(
+    new Date(defEditRes.body.createdAt).toISOString(),
+    fixedCreatedAt,
+  );
+  assert.equal(
+    new Date(defEditRes.body.executedAt).toISOString(),
+    fixedExecutedAt,
+  );
+  assert.ok(
+    new Date(defEditRes.body.updatedAt).getTime() >
+      new Date(fixedCreatedAt).getTime(),
+  );
+  assert.equal(
+    Number(
+      (
+        await db.db.query(
+          'SELECT COUNT(*)::int AS cnt FROM test_executions WHERE "testCaseId"=$1',
+          [caseId],
+        )
+      ).rows[0].cnt,
+    ),
+    0,
+  );
+
+  // Outcome edit by admin logs execution history & updatedAt/updatedById, NEVER overwrites creator or createdAt
+  const statusEditRes = await request(app.getHttpServer())
+    .patch(`/api/test-cases/${caseId}`)
+    .set('Authorization', auth(admin))
+    .send({
+      status: 'failed',
+      actualResult: 'Broken after deploy',
+      notes: 'Verified by admin',
+    })
+    .expect(200);
+  assert.equal(statusEditRes.body.status, 'failed');
+  assert.equal(statusEditRes.body.actualResult, 'Broken after deploy');
+  assert.equal(statusEditRes.body.testerId, tester.id);
+  assert.equal(statusEditRes.body.tester.id, tester.id);
+  assert.equal(statusEditRes.body.updatedById, admin.id);
+  assert.equal(statusEditRes.body.updatedBy.id, admin.id);
+  assert.equal(
+    new Date(statusEditRes.body.createdAt).toISOString(),
+    fixedCreatedAt,
+  );
+  assert.ok(
+    new Date(statusEditRes.body.executedAt).getTime() >
+      new Date(fixedCreatedAt).getTime(),
+  );
+
+  const listAfterEdit = await request(app.getHttpServer())
+    .get('/api/test-cases?projectId=1&limit=1000')
+    .set('Authorization', auth(tester))
+    .expect(200);
+  const reloadedRow = listAfterEdit.body.data.find((row) => row.id === caseId);
+  assert.ok(reloadedRow);
+  assert.equal(reloadedRow.tester.id, tester.id);
+  assert.equal(
+    new Date(reloadedRow.createdAt).toISOString(),
+    fixedCreatedAt,
+  );
+  assert.equal(reloadedRow.updatedBy.id, admin.id);
+
+  // Clearing actualResult/notes to empty string updates current outcome while keeping creator & createdAt
+  const clearedRes = await request(app.getHttpServer())
+    .patch(`/api/test-cases/${caseId}`)
+    .set('Authorization', auth(admin))
+    .send({
+      actualResult: '',
+      notes: '',
+    })
+    .expect(200);
+  assert.equal(clearedRes.body.actualResult, null);
+  assert.equal(clearedRes.body.notes, null);
+  assert.equal(clearedRes.body.testerId, tester.id);
+  assert.equal(
+    new Date(clearedRes.body.createdAt).toISOString(),
+    fixedCreatedAt,
+  );
+  assert.equal(
+    (await service.history(caseId, q, admin)).data[0].testerId,
+    admin.id,
+  );
+});
